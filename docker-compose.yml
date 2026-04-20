@@ -1,0 +1,50 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: streamhub-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: streamhub
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  nextjs:
+    build: .
+    container_name: nextjs-app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src:/app/src
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: streamhub
+    depends_on:
+      - mysql
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: package.json
+
+  nginx-rtmp:
+    image: tiangolo/nginx-rtmp:latest
+    container_name: streamhub-rtmp
+    restart: unless-stopped
+    ports:
+      - "1935:1935"   # RTMP ingest for OBS
+      - "8080:8080"   # HLS playback (http://localhost:8080/hls/<id>.m3u8)
+    volumes:
+      - ./nginx-rtmp/nginx.conf:/etc/nginx/nginx.conf:ro
+    extra_hosts:
+      # Lets the container reach the Next.js app running on the host.
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  mysql_data:

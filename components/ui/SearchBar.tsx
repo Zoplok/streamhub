@@ -1,0 +1,46 @@
+'use client'
+
+import { Search, Mic } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+
+export function SearchBar() {
+  const router = useRouter()
+  const [q, setQ] = useState('')
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        const query = q.trim()
+        if (query) router.push(`/search?q=${encodeURIComponent(query)}`)
+      }}
+      className="flex w-full max-w-2xl items-center gap-2"
+    >
+      <div className="relative flex h-10 flex-1 items-center overflow-hidden rounded-full border border-surface-4 bg-surface-1 focus-within:border-brand-500 focus-within:shadow-glow">
+        <Search className="ml-4 h-4 w-4 shrink-0 text-neutral-400" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          type="text"
+          placeholder="Search videos, streams, creators…"
+          className="h-full w-full bg-transparent px-3 text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none"
+        />
+        <button
+          type="submit"
+          className="h-full border-l border-surface-4 bg-surface-2 px-5 text-neutral-300 transition-colors hover:bg-surface-3 hover:text-white"
+          aria-label="Search"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+      </div>
+      <button
+        type="button"
+        className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-neutral-300 transition-colors hover:bg-surface-3 hover:text-white md:inline-flex"
+        aria-label="Voice search"
+      >
+        <Mic className="h-4 w-4" />
+      </button>
+    </form>
+  )
+}
