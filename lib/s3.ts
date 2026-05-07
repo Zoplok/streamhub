@@ -20,6 +20,16 @@ const storageDriver = process.env.STORAGE_DRIVER ?? (process.env.NODE_ENV === 'p
 const localUploadRoot = path.join(process.cwd(), 'public', 'uploads')
 const localPublicBase = process.env.LOCAL_STORAGE_PUBLIC_URL ?? '/uploads'
 
+export function hasPersistentObjectStorage() {
+  if (storageDriver === 'local') return process.env.NODE_ENV !== 'production'
+  return Boolean(
+    process.env.S3_ENDPOINT &&
+    process.env.S3_BUCKET &&
+    process.env.S3_ACCESS_KEY &&
+    process.env.S3_SECRET_KEY
+  )
+}
+
 async function toBuffer(body: Buffer | Uint8Array | Readable) {
   if (Buffer.isBuffer(body)) return body
   if (body instanceof Uint8Array) return Buffer.from(body)

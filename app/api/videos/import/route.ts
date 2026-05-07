@@ -7,7 +7,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { uploadObject } from '@/lib/s3'
+import { hasPersistentObjectStorage, uploadObject } from '@/lib/s3'
 import { enqueueTranscode } from '@/lib/queue'
 import { invalidateVideoCaches } from '@/lib/redis'
 
@@ -77,6 +77,17 @@ export async function POST(req: NextRequest) {
   const videoId = randomUUID()
   const rawExt = urlPathname.split('.').pop() ?? 'mp4'
   const ext = rawExt.replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'mp4'
+  const tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean).slice(0, 20)
+
+  if (!hasPersistentObjectStorage()) {
+    await db.query(
+      `INSERT INTO videos (id, channel_id, title, description, category, status, tags, hls_url, duration)
+       VALUES (?, ?, ?, ?, ?, 'ready', CAST(? AS JSON), ?, 0)`,
+      [videoId, channel.rows[0].id, title, description, category || null, JSON.stringify(tags), url]
+    )
+    await invalidateVideoCaches()
+    return NextResponse.json({ data: { id: videoId, status: 'ready' } }, { status: 201 })
+  }
 
   const tmpDir = path.join(os.tmpdir(), 'streamhub-originals')
   await mkdir(tmpDir, { recursive: true })
@@ -100,8 +111,6 @@ export async function POST(req: NextRequest) {
 
     const buf = await readFile(tmpPath)
     await uploadObject(`originals/${videoId}.${ext}`, buf, contentType || 'video/mp4')
-
-    const tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean).slice(0, 20)
 
     await db.query(
       `INSERT INTO videos (id, channel_id, title, description, category, status, tags)

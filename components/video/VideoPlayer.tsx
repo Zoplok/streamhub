@@ -15,6 +15,12 @@ export function VideoPlayer({ src, poster, autoPlay = false }: Props) {
     const video = videoRef.current
     if (!video || !src) return
 
+    const isHls = src.includes('.m3u8') || src.includes('application/vnd.apple.mpegurl')
+    if (!isHls) {
+      video.src = src
+      return
+    }
+
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = src
       return

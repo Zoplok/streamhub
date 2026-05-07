@@ -41,8 +41,8 @@ export default function UploadPage() {
       setError('Please select a video file.')
       return
     }
-    if (f.size > 500 * 1024 * 1024) {
-      setError('File too large. Max 500MB.')
+    if (f.size > 25 * 1024 * 1024) {
+      setError('File too large for this deployment. Max 25MB unless S3/R2 storage is configured. Use Import via link for larger videos.')
       return
     }
     setFile(f)
@@ -208,7 +208,7 @@ export default function UploadPage() {
               <UploadCloud className="h-7 w-7 text-brand-400" />
             </div>
             <p className="text-sm font-semibold text-neutral-100">Drag &amp; drop a video</p>
-            <p className="mt-1 text-xs text-neutral-500">MP4, MOV, WebM · up to 500MB</p>
+            <p className="mt-1 text-xs text-neutral-500">MP4, MOV, WebM - up to 25MB on this deployment</p>
             <input
               ref={fileRef}
               type="file"

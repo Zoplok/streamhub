@@ -6,13 +6,15 @@ import path from 'node:path'
 import os from 'node:os'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { uploadObject } from '@/lib/s3'
+import { hasPersistentObjectStorage, uploadObject } from '@/lib/s3'
 import { enqueueTranscode } from '@/lib/queue'
 import { cacheKey, getJson, invalidateVideoCaches, setJson } from '@/lib/redis'
 import { withApiTiming } from '@/lib/perf'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
+
+const VERCEL_INLINE_LIMIT = 25 * 1024 * 1024
 
 const listSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -120,6 +122,34 @@ export async function POST(req: NextRequest) {
     _step = 'read-file'
     const buf = Buffer.from(await file.arrayBuffer())
     const ext = (file.name.split('.').pop() ?? 'mp4').toLowerCase().slice(0, 5)
+
+    if (!hasPersistentObjectStorage()) {
+      if (buf.byteLength > VERCEL_INLINE_LIMIT) {
+        return NextResponse.json(
+          {
+            error: 'This deployment needs S3/R2 storage for files over 25MB. Use Import via link for now, or configure S3 storage.'
+          },
+          { status: 413 }
+        )
+      }
+
+      _step = 'db-inline-insert'
+      await db.query(
+        `INSERT INTO videos (id, channel_id, title, description, category, status, tags, hls_url, duration)
+         VALUES (?, ?, ?, ?, ?, 'ready', CAST(? AS JSON), ?, 0)`,
+        [
+          videoId,
+          channel.rows[0].id,
+          parsed.data.title,
+          parsed.data.description,
+          parsed.data.category || null,
+          JSON.stringify(tags),
+          `data:${file.type || 'video/mp4'};base64,${buf.toString('base64')}`
+        ]
+      )
+      await invalidateVideoCaches()
+      return NextResponse.json({ data: { id: videoId, status: 'ready' } }, { status: 201 })
+    }
 
     _step = 'storage-upload'
     await uploadObject(`originals/${videoId}.${ext}`, buf, file.type || 'video/mp4')
