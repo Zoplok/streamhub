@@ -81,7 +81,7 @@ Started at: ${stream.started_at ?? 'n/a'}`
       return NextResponse.json({ data: { reply: '🤖 Too many questions at once — try again in a minute.' } })
     }
     if (e.status === 401 || e.status === 403) {
-      const fallback = `Hey${username ? ` @${username}` : ''}! StreamBot here 🤖 — I'm not fully online yet. Ask the streamer about "${stream?.title ?? 'this stream'}" in chat!`
+      const fallback = `Hey${username ? ` @${username}` : ''}! StreamBot here 🤖 — I'm not fully online yet. Ask the streamer in chat!`
       return NextResponse.json({ data: { reply: fallback, fallback: true } })
     }
     if (e.status === 404) {
