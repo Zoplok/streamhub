@@ -401,12 +401,19 @@ export function StudioClient({ streamId, streamKey, title, channelName, userId, 
       }
     }
 
+    let didFallback = false
+
     ws.onerror = () => {
-      setErrorMsg('Could not reach the ingest service.')
-      setConn('error')
+      didFallback = true
+      wsRef.current = null
+      startStatusOnlyLive().catch((err) => {
+        setErrorMsg((err as Error).message)
+        setConn('error')
+      })
     }
 
     ws.onclose = (ev) => {
+      if (didFallback) return
       if (recorderRef.current && recorderRef.current.state !== 'inactive') {
         try { recorderRef.current.stop() } catch {}
       }
