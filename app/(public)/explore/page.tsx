@@ -5,6 +5,7 @@ import { LiveCard } from '@/components/live/LiveCard'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Compass, Radio } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
 export const revalidate = 60
 
 interface VideoRow {

@@ -3,19 +3,18 @@ const config = {
   reactStrictMode: true,
   experimental: {
     serverActions: { bodySizeLimit: '500mb' },
-    serverComponentsExternalPackages: ['bcrypt', '@mapbox/node-pre-gyp']
+    serverComponentsExternalPackages: []
   },
   images: {
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost' },
-      { protocol: 'http', hostname: 'minio' },
-      { protocol: 'https', hostname: '**' }
+      { protocol: 'http', hostname: 'minio' }
     ]
   },
   webpack: (webpackConfig, { isServer }) => {
     if (isServer) {
       webpackConfig.externals = webpackConfig.externals || []
-      webpackConfig.externals.push('bcrypt', '@mapbox/node-pre-gyp')
     }
     return webpackConfig
   }

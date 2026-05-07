@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { StatsCard } from '@/components/admin/StatsCard'
 
+export const dynamic = 'force-dynamic'
 export default async function AdminPage() {
   const [users, videos, streams, shorts, reports, views] = await Promise.all([
     db.query<{ c: number }>('SELECT CAST(COUNT(*) AS SIGNED) AS c FROM users'),

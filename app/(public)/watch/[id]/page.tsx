@@ -6,6 +6,7 @@ import { ReactionBar } from '@/components/video/ReactionBar'
 import { Comments } from '@/components/video/Comments'
 import { WatchTracker } from '@/components/video/WatchTracker'
 import { auth } from '@/lib/auth'
+import { logTiming } from '@/lib/perf'
 
 interface VideoRow {
   id: string
@@ -23,6 +24,7 @@ interface VideoRow {
 }
 
 export default async function WatchPage({ params }: { params: { id: string } }) {
+  const startedAt = performance.now()
   const result = await db.query<VideoRow>(
     `SELECT v.id, v.title, v.description, v.hls_url, v.thumbnail_url, v.duration, v.views, v.created_at,
             v.channel_id, c.name AS channel_name,
@@ -36,6 +38,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   if (!video) notFound()
   await db.query('UPDATE videos SET views = views + 1 WHERE id=?', [params.id])
   const session = await auth()
+  logTiming(`page /watch/${params.id}`, startedAt, Number(process.env.PAGE_SLOW_RENDER_MS ?? 150))
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">

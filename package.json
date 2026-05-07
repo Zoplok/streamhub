@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "next build",
-    "start": "NODE_ENV=production tsx server.ts",
+    "start": "tsx server.ts",
     "lint": "next lint",
     "migrate": "tsx scripts/migrate.ts",
     "db:migrate": "tsx scripts/migrate.ts"
@@ -13,35 +13,35 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.645.0",
     "@aws-sdk/s3-request-presigner": "^3.645.0",
+    "@neondatabase/serverless": "^1.1.0",
     "@types/ws": "^8.18.1",
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "ffmpeg-static": "^5.3.0",
     "hls.js": "^1.5.15",
     "ioredis": "^5.4.1",
     "lucide-react": "^1.8.0",
     "mysql2": "^3.22.1",
-    "next": "14.2.15",
-    "next-auth": "5.0.0-beta.22",
+    "next": "^14.2.35",
+    "next-auth": "^5.0.0-beta.31",
     "openai": "^4.67.3",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "socket.io": "^4.8.0",
     "socket.io-client": "^4.8.0",
+    "tsx": "^4.19.1",
     "ws": "^8.20.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
     "@types/node": "^20.16.10",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
-    "eslint-config-next": "14.2.15",
+    "eslint-config-next": "^14.2.35",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
-    "tsx": "^4.19.1",
     "typescript": "^5.6.2"
   }
 }

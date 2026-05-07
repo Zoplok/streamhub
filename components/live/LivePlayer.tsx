@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import Hls from 'hls.js'
 
 export function LivePlayer({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -13,13 +12,24 @@ export function LivePlayer({ src }: { src: string }) {
       video.src = src
       return
     }
-    if (Hls.isSupported()) {
-      const hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 3 })
-      hls.loadSource(src)
-      hls.attachMedia(video)
-      return () => hls.destroy()
+    let disposed = false
+    let cleanup: (() => void) | undefined
+    void import('hls.js').then(({ default: Hls }) => {
+      if (disposed || videoRef.current !== video) return
+      if (Hls.isSupported()) {
+        const hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 3 })
+        hls.loadSource(src)
+        hls.attachMedia(video)
+        cleanup = () => hls.destroy()
+        return
+      }
+      video.src = src
+    })
+
+    return () => {
+      disposed = true
+      cleanup?.()
     }
-    video.src = src
   }, [src])
 
   return (
@@ -27,6 +37,7 @@ export function LivePlayer({ src }: { src: string }) {
       ref={videoRef}
       className="aspect-video w-full bg-black"
       controls
+      preload="metadata"
       autoPlay
       muted
       playsInline

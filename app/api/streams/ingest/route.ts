@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { notifyChannelSubscribers } from '@/lib/notifications'
+import { invalidateStreamCaches } from '@/lib/redis'
+import { withApiTiming } from '@/lib/perf'
 
 // nginx-rtmp on_publish webhook.
 //
@@ -15,6 +17,7 @@ import { notifyChannelSubscribers } from '@/lib/notifications'
 // is then served at <stream_id>.m3u8 — never exposing the secret key.
 
 async function handle(req: NextRequest) {
+  return withApiTiming(`${req.method} /api/streams/ingest`, async () => {
   // Accept both GET (query params) and POST (form body) for flexibility.
   let name = req.nextUrl.searchParams.get('name') ?? ''
   if (!name && req.method === 'POST') {
@@ -55,6 +58,7 @@ async function handle(req: NextRequest) {
        WHERE id=?`,
       [hlsUrl, row.id]
     )
+    await invalidateStreamCaches()
 
     console.log('[ingest] stream live:', row.id, 'rtmp-name:', name.slice(0, 12) + '…')
 
@@ -76,6 +80,7 @@ async function handle(req: NextRequest) {
     console.error('[ingest] error:', err)
     return new NextResponse('server error', { status: 500 })
   }
+  })
 }
 
 export const GET = handle

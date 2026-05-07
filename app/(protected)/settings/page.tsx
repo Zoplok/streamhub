@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Settings as SettingsIcon, User, Shield, Bell, Palette } from 'lucide-react'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
 export default async function SettingsPage() {
   const session = await auth()
   if (!session?.user) redirect('/login?callbackUrl=/settings')

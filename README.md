@@ -9,7 +9,7 @@ A production-grade video streaming platform combining YouTube-style video hostin
 - NextAuth.js v5 (JWT + credentials)
 - Socket.io (custom Node server in `server.ts`)
 - FFmpeg HLS transcode pipeline
-- S3-compatible storage (MinIO locally)
+- S3-compatible storage, with local filesystem uploads by default in development
 - OpenAI function-calling agent (`lib/ai/`)
 - Tailwind CSS
 - Docker + docker-compose
@@ -24,14 +24,87 @@ npm run migrate
 npm run dev
 ```
 
-App runs at http://localhost:3000, Socket.io at `/api/socket`.
+App runs at http://127.0.0.1:3002, Socket.io at `/api/socket`.
 
-MinIO console: http://localhost:9001 (create a public bucket named `streamhub`).
+Local development stores uploaded videos under `public/uploads` by default. To use MinIO/S3 instead, set `STORAGE_DRIVER=s3` and configure the `S3_*` environment variables.
 
 ### Full stack in docker
 
 ```bash
 docker compose up --build
+```
+
+### Vercel deployment
+
+Vercel can host the Next.js pages and route handlers, but it will not run the custom Node server in `server.ts`. That means these features need an external service if you deploy the web app on Vercel:
+
+- Socket.io chat and live viewer counts (`/api/socket`)
+- Browser WebSocket ingest (`/api/ws/stream`)
+- FFmpeg background transcodes (`lib/queue.ts` / `lib/ffmpeg.ts`)
+- RTMP ingest and HLS packaging (`nginx-rtmp`)
+- MySQL, Redis, and file storage containers
+
+Use Vercel for the web/API app, and run the realtime/ingest worker stack on a VM or container host. For Vercel, configure:
+
+```bash
+NEXTAUTH_URL=https://your-vercel-domain.vercel.app
+NEXTAUTH_SECRET=<generated-secret>
+DB_HOST=<external-mysql-host>
+DB_PORT=3306
+DB_USER=<external-mysql-user>
+DB_PASSWORD=<external-mysql-password>
+DB_NAME=streamhub
+STORAGE_DRIVER=s3
+S3_ENDPOINT=<s3-compatible-endpoint>
+S3_REGION=<region>
+S3_BUCKET=<bucket>
+S3_ACCESS_KEY=<access-key>
+S3_SECRET_KEY=<secret-key>
+S3_PUBLIC_URL=<public-bucket-url>
+REDIS_URL=<external-redis-url>
+OPENAI_API_KEY=<provider-key>
+OPENAI_BASE_URL=<provider-url-if-not-openai>
+OPENAI_MODEL=<model>
+HLS_PUBLIC_URL=<external-hls-base-url>
+RTMP_INGEST_URL=<external-rtmp-url>
+NEXT_PUBLIC_RTMP_INGEST_URL=<public-rtmp-url-for-obs>
+NEXT_PUBLIC_INGEST_WS_URL=<public-wss-url-for-browser-go-live>
+```
+
+`RTMP_INGEST_URL` is server-side and is used by FFmpeg. `NEXT_PUBLIC_RTMP_INGEST_URL`
+is safe to show in Studio because creators still need their private stream key.
+`NEXT_PUBLIC_INGEST_WS_URL` should point at a long-running ingest host that serves
+the `/api/ws/stream` WebSocket route; do not point it at Vercel.
+
+### External ingest host
+
+To make live video work with a Vercel-hosted web app, run the ingest stack on a
+VPS or container host that supports long-running WebSockets and public TCP port
+1935:
+
+```bash
+cp .env.ingest.example .env.ingest
+# edit .env.ingest with DATABASE_URL, NEXTAUTH_SECRET, and HLS_PUBLIC_URL
+docker compose -f docker-compose.ingest.yml up --build -d
+```
+
+Open these ports on the host:
+
+- `3002` for browser WebSocket ingest at `/api/ws/stream`
+- `1935` for OBS RTMP ingest
+- `8080` for HLS playback at `/hls/<stream_id>.m3u8`
+
+After the host is reachable, sync its public URLs into Vercel:
+
+```powershell
+.\scripts\configure-vercel-ingest.ps1 -HostName ingest.example.com
+vercel --prod --yes
+```
+
+Run migrations against the external database before first use:
+
+```bash
+npm run db:migrate
 ```
 
 ## Project layout
@@ -49,8 +122,8 @@ docker compose up --build
 ## Key flows
 
 ### Video upload -> HLS
-1. `POST /api/videos` (multipart) stores the original in S3 and enqueues a transcode job (`lib/queue.ts`).
-2. `lib/ffmpeg.ts` produces an HLS master playlist (360p / 720p / 1080p) + a thumbnail; all segments are uploaded to S3.
+1. `POST /api/videos` (multipart) stores the original in local storage or S3 and enqueues a transcode job (`lib/queue.ts`).
+2. `lib/ffmpeg.ts` produces an HLS master playlist (360p / 720p / 1080p) + a thumbnail; all segments are uploaded to the configured storage driver.
 3. DB row flips `status='ready'` with `hls_url` + `thumbnail_url` populated.
 4. `/watch/[id]` streams via `hls.js` in a Client Component.
 

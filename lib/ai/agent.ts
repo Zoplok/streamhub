@@ -1,9 +1,8 @@
-import OpenAI from 'openai'
+import type OpenAI from 'openai'
 import { tools } from './tools'
 import { executeTool } from './handlers'
 import type { Role } from '@/types'
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+import { getAIModel, getOpenAI, hasOpenAIKey } from './openai'
 
 export interface AgentResult {
   reply: string | null
@@ -11,6 +10,13 @@ export interface AgentResult {
 }
 
 export async function runAgent(userMessage: string, userId: string, role: Role): Promise<AgentResult> {
+  if (!hasOpenAIKey()) {
+    return {
+      reply: 'AI is not configured. Set OPENAI_API_KEY to enable assistant features.',
+      toolCalls: []
+    }
+  }
+
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     {
       role: 'system',
@@ -27,8 +33,8 @@ export async function runAgent(userMessage: string, userId: string, role: Role):
   const MAX_TURNS = 5
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+    const response = await getOpenAI().chat.completions.create({
+      model: getAIModel(),
       messages,
       tools,
       tool_choice: 'auto',

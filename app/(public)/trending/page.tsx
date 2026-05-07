@@ -3,6 +3,7 @@ import { VideoGrid } from '@/components/video/VideoGrid'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Flame } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
 export const revalidate = 60
 
 interface VideoRow {

@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { ChannelEditor } from '@/components/channel/ChannelEditor'
 
+export const dynamic = 'force-dynamic'
 export default async function CustomizeChannelPage() {
   const session = await auth()
   if (!session?.user) redirect('/login?callbackUrl=/dashboard/channel')

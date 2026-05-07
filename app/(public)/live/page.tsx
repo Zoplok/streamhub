@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { db } from '@/lib/db'
 import { Badge } from '@/components/ui/Badge'
 
+export const dynamic = 'force-dynamic'
 export const revalidate = 10
 
 interface LiveRow {

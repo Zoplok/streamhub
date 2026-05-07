@@ -2,8 +2,8 @@ import { db } from '@/lib/db'
 import { ShortsFeed } from '@/components/shorts/ShortsFeed'
 import type { Short } from '@/types'
 
-export const dynamic = 'force-dynamic'
 
+export const dynamic = 'force-dynamic'
 interface ScoredShort extends Short {
   score: number
   channel_name: string

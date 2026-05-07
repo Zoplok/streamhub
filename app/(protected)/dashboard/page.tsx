@@ -6,6 +6,7 @@ import { StatsCard } from '@/components/admin/StatsCard'
 import { Button } from '@/components/ui/Button'
 import { Video, Eye, Users, Radio, Upload, Sparkles, TrendingUp, Film } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
 export default async function DashboardPage() {
   const session = await auth()
   if (!session?.user) return null

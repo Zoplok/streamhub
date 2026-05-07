@@ -5,10 +5,27 @@
 
 :root {
   color-scheme: dark;
+  --surface-0: 10 10 10;
+  --surface-1: 18 18 18;
+  --surface-2: 24 24 24;
+  --surface-3: 32 32 32;
+  --surface-4: 42 42 42;
+  --surface-5: 56 56 56;
 }
 
-html, body {
-  @apply bg-surface-0 text-neutral-100 antialiased font-sans;
+.light {
+  color-scheme: light;
+  --surface-0: 250 250 250;
+  --surface-1: 255 255 255;
+  --surface-2: 245 245 245;
+  --surface-3: 229 229 229;
+  --surface-4: 212 212 212;
+  --surface-5: 163 163 163;
+}
+
+html,
+body {
+  @apply bg-surface-0 text-neutral-100 antialiased font-sans transition-colors duration-200;
   font-feature-settings: 'cv11', 'ss01', 'ss03';
 }
 
@@ -30,5 +47,24 @@ html, body {
   }
   .card-hover {
     @apply transition-colors hover:bg-surface-2;
+  }
+}
+
+@layer utilities {
+  .light body {
+    @apply text-neutral-950;
+  }
+
+  .light .placeholder\:text-neutral-500::placeholder,
+  .light .placeholder-neutral-500::placeholder {
+    color: rgb(115 115 115);
+  }
+
+  .light .text-surface-0 {
+    color: rgb(10 10 10);
+  }
+
+  .light .ring-surface-0 {
+    --tw-ring-color: rgb(var(--surface-0) / 1);
   }
 }

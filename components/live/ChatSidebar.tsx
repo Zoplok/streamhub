@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { Button } from '@/components/ui/Button'
 import { Bot, Send, Shield, Sparkles, Users } from 'lucide-react'
@@ -30,16 +30,78 @@ export function ChatSidebar({
   const [viewers, setViewers] = useState(0)
   const [blocked, setBlocked] = useState<string | null>(null)
   const [botThinking, setBotThinking] = useState(false)
+  const [usingPolling, setUsingPolling] = useState(false)
+  const [realtimeUnavailable, setRealtimeUnavailable] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const listRef = useRef<HTMLUListElement | null>(null)
+  const seenMessagesRef = useRef<Set<string>>(new Set())
+  const lastMessageAtRef = useRef<string | null>(null)
+
+  const mergeMessages = useCallback((nextMessages: ChatMsg[]) => {
+    if (nextMessages.length === 0) return
+    setMessages((prev) => {
+      const merged = [...prev]
+      for (const message of nextMessages) {
+        if (seenMessagesRef.current.has(message.id)) continue
+        seenMessagesRef.current.add(message.id)
+        merged.push(message)
+        if (
+          !lastMessageAtRef.current ||
+          new Date(message.created_at).getTime() > new Date(lastMessageAtRef.current).getTime()
+        ) {
+          lastMessageAtRef.current = message.created_at
+        }
+        if (message.bot) setBotThinking(false)
+      }
+      return merged.slice(-200)
+    })
+  }, [])
 
   useEffect(() => {
-    const s = io({ path: '/api/socket' })
+    const realtimeUrl = process.env.NEXT_PUBLIC_REALTIME_URL?.replace(/\/$/, '')
+    const isVercel = window.location.hostname.endsWith('.vercel.app')
+
+    if (isVercel && !realtimeUrl) {
+      setUsingPolling(true)
+      setRealtimeUnavailable(false)
+      let cancelled = false
+
+      async function loadMessages() {
+        const after = lastMessageAtRef.current
+        const query = new URLSearchParams()
+        if (after) query.set('after', after)
+        query.set('limit', after ? '100' : '50')
+
+        try {
+          const res = await fetch(`/api/streams/${streamId}/chat?${query.toString()}`, {
+            cache: 'no-store'
+          })
+          if (!res.ok || cancelled) return
+          const json = await res.json() as { data?: ChatMsg[] }
+          mergeMessages(json.data ?? [])
+        } catch {
+          if (!cancelled) setRealtimeUnavailable(true)
+        }
+      }
+
+      void loadMessages()
+      const timer = window.setInterval(loadMessages, 2500)
+      return () => {
+        cancelled = true
+        window.clearInterval(timer)
+      }
+    }
+
+    setUsingPolling(false)
+    const s = io(realtimeUrl || undefined, { path: '/api/socket' })
     socketRef.current = s
+    setRealtimeUnavailable(false)
     s.emit('stream:join', streamId)
+    s.on('connect_error', () => {
+      setRealtimeUnavailable(true)
+    })
     s.on('chat:message', (m: ChatMsg) => {
-      setMessages((prev) => [...prev.slice(-199), m])
-      if (m.bot) setBotThinking(false)
+      mergeMessages([m])
     })
     s.on('stream:viewers', (n: number) => setViewers(n))
     s.on('chat:blocked', (b: { reason: string }) => {
@@ -49,25 +111,50 @@ export function ChatSidebar({
     return () => {
       s.emit('stream:leave', streamId)
       s.disconnect()
+      socketRef.current = null
     }
-  }, [streamId])
+  }, [mergeMessages, streamId])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
-  function send(e: React.FormEvent) {
+  async function send(e: React.FormEvent) {
     e.preventDefault()
     const trimmed = text.trim()
     if (!trimmed || !userId || !username) return
+
     if (/^@streambot\b/i.test(trimmed)) setBotThinking(true)
+
+    if (usingPolling) {
+      try {
+        const res = await fetch(`/api/streams/${streamId}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: trimmed })
+        })
+        const json = await res.json().catch(() => null) as { data?: ChatMsg[]; blocked?: { reason: string } } | null
+        if (json?.blocked) {
+          setBlocked(json.blocked.reason)
+          setBotThinking(false)
+          setTimeout(() => setBlocked(null), 4000)
+          return
+        }
+        mergeMessages(json?.data ?? [])
+        setText('')
+      } catch {
+        setRealtimeUnavailable(true)
+        setBotThinking(false)
+      }
+      return
+    }
+
     socketRef.current?.emit('chat:send', { streamId, userId, username, content: trimmed })
     setText('')
   }
 
   return (
     <aside className="flex h-full flex-col border-l border-surface-3 bg-surface-1">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-extrabold tracking-tight">Live chat</span>
@@ -82,7 +169,6 @@ export function ChatSidebar({
         </div>
       </div>
 
-      {/* AI info banner */}
       <div className="flex items-start gap-2 border-b border-surface-3 bg-gradient-to-br from-brand-500/5 to-transparent px-4 py-2.5">
         <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-400" />
         <p className="text-[11px] leading-tight text-neutral-400">
@@ -91,12 +177,21 @@ export function ChatSidebar({
           anything about the stream.
         </p>
       </div>
+      {usingPolling && (
+        <div className="border-b border-surface-3 bg-surface-2/60 px-4 py-2 text-[11px] leading-tight text-neutral-300">
+          Chat is connected with Vercel-compatible updates.
+        </div>
+      )}
+      {realtimeUnavailable && (
+        <div className="border-b border-amber-900/60 bg-amber-950/40 px-4 py-2 text-[11px] leading-tight text-amber-200">
+          Chat updates are having trouble connecting. Messages will retry shortly.
+        </div>
+      )}
 
-      {/* Messages */}
       <ul ref={listRef} className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
         {messages.length === 0 && (
           <li className="mt-8 text-center text-xs text-neutral-500">
-            Be the first to say hi 👋
+            Be the first to say hi
           </li>
         )}
         {messages.map((m) => (
@@ -147,7 +242,6 @@ export function ChatSidebar({
         )}
       </ul>
 
-      {/* Input */}
       {userId ? (
         <div className="border-t border-surface-3 p-3">
           {blocked && (
@@ -161,7 +255,7 @@ export function ChatSidebar({
               <input
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Say something or @StreamBot…"
+                placeholder="Say something or @StreamBot..."
                 maxLength={500}
                 className="h-full w-full bg-transparent px-4 text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none"
               />

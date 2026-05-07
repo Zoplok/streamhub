@@ -5,6 +5,7 @@ import { VideoGrid } from '@/components/video/VideoGrid'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { History as HistoryIcon } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
 export default async function HistoryPage() {
   const session = await auth()
   if (!session?.user) redirect('/login?callbackUrl=/history')

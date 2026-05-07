@@ -1,5 +1,5 @@
 import mysql from 'mysql2/promise'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { randomUUID } from 'node:crypto'
 
 const DB = {

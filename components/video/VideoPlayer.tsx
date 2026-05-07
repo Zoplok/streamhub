@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import Hls from 'hls.js'
 
 interface Props {
   src: string
@@ -21,14 +20,24 @@ export function VideoPlayer({ src, poster, autoPlay = false }: Props) {
       return
     }
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: false })
-      hls.loadSource(src)
-      hls.attachMedia(video)
-      return () => hls.destroy()
-    }
+    let disposed = false
+    let cleanup: (() => void) | undefined
+    void import('hls.js').then(({ default: Hls }) => {
+      if (disposed || videoRef.current !== video) return
+      if (Hls.isSupported()) {
+        const hls = new Hls({ enableWorker: true, lowLatencyMode: false })
+        hls.loadSource(src)
+        hls.attachMedia(video)
+        cleanup = () => hls.destroy()
+        return
+      }
+      video.src = src
+    })
 
-    video.src = src
+    return () => {
+      disposed = true
+      cleanup?.()
+    }
   }, [src])
 
   return (
@@ -37,6 +46,7 @@ export function VideoPlayer({ src, poster, autoPlay = false }: Props) {
       className="aspect-video w-full rounded-lg bg-black"
       controls
       playsInline
+      preload="metadata"
       autoPlay={autoPlay}
       poster={poster ?? undefined}
     />

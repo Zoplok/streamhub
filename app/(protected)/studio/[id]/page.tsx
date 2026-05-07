@@ -40,6 +40,7 @@ export default async function StudioPage({ params }: { params: { id: string } })
       initialStatus={stream.status}
       userId={session.user.id ?? null}
       username={session.user.name ?? null}
+      rtmpIngestUrl={process.env.NEXT_PUBLIC_RTMP_INGEST_URL ?? null}
     />
   )
 }

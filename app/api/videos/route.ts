@@ -8,6 +8,8 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { uploadObject } from '@/lib/s3'
 import { enqueueTranscode } from '@/lib/queue'
+import { cacheKey, getJson, invalidateVideoCaches, setJson } from '@/lib/redis'
+import { withApiTiming } from '@/lib/perf'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -16,47 +18,62 @@ const listSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),
   channel_id: z.string().uuid().optional(),
+  category: z.string().max(50).optional(),
   q: z.string().max(100).optional()
 })
 
 export async function GET(req: NextRequest) {
-  const parsed = listSchema.safeParse(Object.fromEntries(req.nextUrl.searchParams))
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
-  }
-  const { limit, offset, channel_id, q } = parsed.data
-  try {
-    const where: string[] = ["v.status = 'ready'"]
-    const params: unknown[] = []
-    if (channel_id) {
-      params.push(channel_id)
-      where.push(`v.channel_id = ?`)
+  return withApiTiming('GET /api/videos', async () => {
+    const parsed = listSchema.safeParse(Object.fromEntries(req.nextUrl.searchParams))
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
     }
-    if (q) {
-      params.push(`%${q}%`, `%${q}%`)
-      where.push(`(v.title LIKE ? OR v.description LIKE ?)`)
+    const { limit, offset, channel_id, category, q } = parsed.data
+    const shouldCache = !q
+    const key = cacheKey('videos:list', { limit, offset, channel_id, category })
+    if (shouldCache) {
+      const cached = await getJson<unknown[]>(key)
+      if (cached) return NextResponse.json({ data: cached }, { headers: { 'X-Cache': 'HIT' } })
     }
-    params.push(limit, offset)
-    const sql = `
-      SELECT v.id, v.channel_id, v.title, v.description, v.hls_url, v.thumbnail_url,
-             v.duration, v.status, v.views, v.created_at, c.name AS channel_name
-      FROM videos v
-      JOIN channels c ON c.id = v.channel_id
-      WHERE ${where.join(' AND ')}
-      ORDER BY v.created_at DESC
-      LIMIT ? OFFSET ?
-    `
-    const result = await db.query(sql, params)
-    return NextResponse.json({ data: result.rows })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
+    try {
+      const where: string[] = ["v.status = 'ready'"]
+      const params: unknown[] = []
+      if (channel_id) {
+        params.push(channel_id)
+        where.push(`v.channel_id = ?`)
+      }
+      if (category) {
+        params.push(category)
+        where.push(`v.category = ?`)
+      }
+      if (q) {
+        params.push(`%${q}%`, `%${q}%`)
+        where.push(`(v.title LIKE ? OR v.description LIKE ?)`)
+      }
+      params.push(limit, offset)
+      const sql = `
+        SELECT v.id, v.channel_id, v.title, v.thumbnail_url,
+               v.duration, v.views, v.created_at, c.name AS channel_name
+        FROM videos v
+        JOIN channels c ON c.id = v.channel_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY v.created_at DESC
+        LIMIT ? OFFSET ?
+      `
+      const result = await db.query(sql, params)
+      if (shouldCache) await setJson(key, result.rows, 300)
+      return NextResponse.json({ data: result.rows }, { headers: { 'X-Cache': shouldCache ? 'MISS' : 'BYPASS' } })
+    } catch (err) {
+      console.error(err)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+  })
 }
 
 const uploadSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(5000).optional().default(''),
+  category: z.string().max(50).optional().default(''),
   tags: z.string().max(500).optional().default('')
 })
 
@@ -79,6 +96,7 @@ export async function POST(req: NextRequest) {
   const parsed = uploadSchema.safeParse({
     title: form.get('title'),
     description: form.get('description') ?? '',
+    category: form.get('category') ?? '',
     tags: form.get('tags') ?? ''
   })
   if (!parsed.success) {
@@ -108,12 +126,20 @@ export async function POST(req: NextRequest) {
     await writeFile(tmpPath, buf)
 
     await db.query(
-      `INSERT INTO videos (id, channel_id, title, description, status, tags)
-       VALUES (?, ?, ?, ?, 'processing', CAST(? AS JSON))`,
-      [videoId, channel.rows[0].id, parsed.data.title, parsed.data.description, JSON.stringify(tags)]
+      `INSERT INTO videos (id, channel_id, title, description, category, status, tags)
+       VALUES (?, ?, ?, ?, ?, 'processing', CAST(? AS JSON))`,
+      [
+        videoId,
+        channel.rows[0].id,
+        parsed.data.title,
+        parsed.data.description,
+        parsed.data.category || null,
+        JSON.stringify(tags)
+      ]
     )
 
     enqueueTranscode({ videoId, inputPath: tmpPath })
+    await invalidateVideoCaches()
 
     return NextResponse.json({ data: { id: videoId, status: 'processing' } }, { status: 202 })
   } catch (err) {

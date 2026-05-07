@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { randomBytes } from 'node:crypto'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { cacheKey, getJson, invalidateStreamCaches, setJson } from '@/lib/redis'
+import { withApiTiming } from '@/lib/perf'
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),
@@ -11,22 +13,30 @@ const createSchema = z.object({
 })
 
 export async function GET(req: NextRequest) {
-  const status = req.nextUrl.searchParams.get('status') ?? 'live'
-  try {
-    const result = await db.query(
-      `SELECT ls.id, ls.channel_id, ls.title, ls.status, ls.viewer_count, ls.hls_url, ls.started_at,
-              c.name AS channel_name
-       FROM live_streams ls JOIN channels c ON c.id = ls.channel_id
-       WHERE ls.status = ?
-       ORDER BY ls.started_at DESC
-       LIMIT 50`,
-      [status]
-    )
-    return NextResponse.json({ data: result.rows })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
+  return withApiTiming('GET /api/streams', async () => {
+    const status = req.nextUrl.searchParams.get('status') ?? 'live'
+    const key = cacheKey('streams:list', { status })
+    if (status === 'live') {
+      const cached = await getJson<unknown[]>(key)
+      if (cached) return NextResponse.json({ data: cached }, { headers: { 'X-Cache': 'HIT' } })
+    }
+    try {
+      const result = await db.query(
+        `SELECT ls.id, ls.channel_id, ls.title, ls.status, ls.viewer_count, ls.hls_url, ls.started_at,
+                c.name AS channel_name
+         FROM live_streams ls JOIN channels c ON c.id = ls.channel_id
+         WHERE ls.status = ?
+         ORDER BY ls.started_at DESC
+         LIMIT 50`,
+        [status]
+      )
+      if (status === 'live') await setJson(key, result.rows, 30)
+      return NextResponse.json({ data: result.rows }, { headers: { 'X-Cache': status === 'live' ? 'MISS' : 'BYPASS' } })
+    } catch (err) {
+      console.error(err)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -61,6 +71,7 @@ export async function POST(req: NextRequest) {
         parsed.data.thumbnail_url ?? null
       ]
     )
+    await invalidateStreamCaches()
     return NextResponse.json(
       {
         data: {

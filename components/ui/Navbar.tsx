@@ -4,6 +4,7 @@ import { Button } from './Button'
 import { SearchBar } from './SearchBar'
 import { Video, Radio, User } from 'lucide-react'
 import { NotificationBell } from './NotificationBell'
+import { ThemeToggle } from './ThemeToggle'
 
 export async function Navbar() {
   const session = await auth()
@@ -32,6 +33,7 @@ export async function Navbar() {
 
         {/* Actions */}
         <div className="flex shrink-0 items-center gap-1.5">
+          <ThemeToggle />
           {isCreator && (
             <>
               <Link

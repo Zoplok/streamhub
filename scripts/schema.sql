@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS videos (
   channel_id    CHAR(36) NOT NULL,
   title         VARCHAR(500) NOT NULL,
   description   TEXT,
+  category      VARCHAR(50),
   hls_url       TEXT,
   thumbnail_url TEXT,
   duration      INT NOT NULL DEFAULT 0,
@@ -44,6 +45,9 @@ CREATE TABLE IF NOT EXISTS videos (
 CREATE INDEX idx_videos_channel ON videos(channel_id);
 CREATE INDEX idx_videos_created_at ON videos(created_at DESC);
 CREATE INDEX idx_videos_status ON videos(status);
+CREATE INDEX idx_videos_status_created ON videos(status, created_at DESC);
+CREATE INDEX idx_videos_status_category_created ON videos(status, category, created_at DESC);
+CREATE INDEX idx_videos_channel_status_created ON videos(channel_id, status, created_at DESC);
 CREATE FULLTEXT INDEX idx_videos_title_ft ON videos(title, description);
 
 CREATE TABLE IF NOT EXISTS shorts (
@@ -72,6 +76,8 @@ CREATE TABLE IF NOT EXISTS live_streams (
   FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_streams_status ON live_streams(status);
+CREATE INDEX idx_streams_status_started ON live_streams(status, started_at DESC);
+CREATE INDEX idx_streams_status_viewers ON live_streams(status, viewer_count DESC);
 
 CREATE TABLE IF NOT EXISTS subscriptions (
   id            CHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -124,6 +130,7 @@ CREATE TABLE IF NOT EXISTS watch_history (
   FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_watch_user ON watch_history(user_id);
+CREATE INDEX idx_watch_user_video ON watch_history(user_id, video_id);
 
 CREATE TABLE IF NOT EXISTS chat_messages (
   id         CHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -135,6 +142,17 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_chat_stream ON chat_messages(stream_id, created_at);
+
+CREATE TABLE IF NOT EXISTS stream_signals (
+  id         CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+  stream_id  CHAR(36) NOT NULL,
+  viewer_id  VARCHAR(120) NOT NULL,
+  type       VARCHAR(40) NOT NULL,
+  payload    TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (stream_id) REFERENCES live_streams(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_stream_signals ON stream_signals(stream_id, type, viewer_id, created_at);
 
 CREATE TABLE IF NOT EXISTS reports (
   id          CHAR(36) PRIMARY KEY DEFAULT (UUID()),

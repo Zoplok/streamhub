@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  darkMode: 'class',
   content: [
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}'
@@ -23,12 +24,12 @@ const config: Config = {
         },
         // Deep, saturated YouTube-ish neutrals
         surface: {
-          0: '#0a0a0a',
-          1: '#121212',
-          2: '#181818',
-          3: '#202020',
-          4: '#2a2a2a',
-          5: '#383838'
+          0: 'rgb(var(--surface-0) / <alpha-value>)',
+          1: 'rgb(var(--surface-1) / <alpha-value>)',
+          2: 'rgb(var(--surface-2) / <alpha-value>)',
+          3: 'rgb(var(--surface-3) / <alpha-value>)',
+          4: 'rgb(var(--surface-4) / <alpha-value>)',
+          5: 'rgb(var(--surface-5) / <alpha-value>)'
         }
       },
       fontFamily: {

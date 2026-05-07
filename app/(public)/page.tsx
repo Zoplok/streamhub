@@ -4,8 +4,8 @@ import { LiveCard } from '@/components/live/LiveCard'
 import { Radio, TrendingUp, Film } from 'lucide-react'
 import Link from 'next/link'
 
-export const revalidate = 0
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 interface VideoRow {
   id: string

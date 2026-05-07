@@ -26,7 +26,8 @@ import {
   CornerDownRight,
   CornerUpLeft,
   CornerUpRight,
-  Sparkles
+  Sparkles,
+  Copy
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { ChatSidebar } from '@/components/live/ChatSidebar'
@@ -50,6 +51,7 @@ interface Props {
   initialStatus: string
   userId: string | null
   username: string | null
+  rtmpIngestUrl: string | null
 }
 
 const BITRATE_PRESETS = [
@@ -89,13 +91,38 @@ function fmtBps(bps: number): string {
   return `${(bps / (1024 * 1024)).toFixed(2)} Mb/s`
 }
 
-export function StudioClient({ streamId, streamKey, title, channelName, userId, username }: Props) {
+function getIngestWsUrl(streamKey: string): string | null {
+  const external = process.env.NEXT_PUBLIC_INGEST_WS_URL?.trim().replace(/\/$/, '')
+  if (external) return `${external}?key=${encodeURIComponent(streamKey)}`
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${proto}//${window.location.host}/api/ws/stream?key=${encodeURIComponent(streamKey)}`
+}
+
+function waitForIceGathering(pc: RTCPeerConnection) {
+  if (pc.iceGatheringState === 'complete') return Promise.resolve()
+  return new Promise<void>((resolve) => {
+    const done = () => {
+      if (pc.iceGatheringState !== 'complete') return
+      pc.removeEventListener('icegatheringstatechange', done)
+      resolve()
+    }
+    pc.addEventListener('icegatheringstatechange', done)
+    window.setTimeout(() => {
+      pc.removeEventListener('icegatheringstatechange', done)
+      resolve()
+    }, 2500)
+  })
+}
+
+export function StudioClient({ streamId, streamKey, title, channelName, userId, username, rtmpIngestUrl }: Props) {
   const previewRef = useRef<HTMLDivElement | null>(null)
   const compositorRef = useRef<SceneCompositor | null>(null)
   const cameraStreamRef = useRef<MediaStream | null>(null)
   const screenStreamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const p2pPeersRef = useRef<Map<string, RTCPeerConnection>>(new Map())
+  const handledOffersRef = useRef<Set<string>>(new Set())
   const bytesRef = useRef(0)
   const lastBytesRef = useRef(0)
   const lastTickRef = useRef(0)
@@ -123,12 +150,19 @@ export function StudioClient({ streamId, streamKey, title, channelName, userId, 
   // Status
   const [permError, setPermError] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [ingestAvailable, setIngestAvailable] = useState(true)
   const [conn, setConn] = useState<ConnState>('idle')
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [now, setNow] = useState(Date.now())
   const [bitrate, setBitrate] = useState(0)
+  const [copied, setCopied] = useState<string | null>(null)
+  const [statusOnlyLive, setStatusOnlyLive] = useState(false)
 
   const resolution: Resolution = RESOLUTIONS[resolutionId]
+
+  useEffect(() => {
+    setIngestAvailable(true)
+  }, [])
 
   // Initialise compositor and attach canvas to preview on mount
   useEffect(() => {
@@ -272,6 +306,27 @@ export function StudioClient({ streamId, streamKey, title, channelName, userId, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraId, micId])
 
+  const updateStreamStatus = useCallback(async (status: 'live' | 'ended') => {
+    const res = await fetch(`/api/streams/${streamId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: unknown } | null
+      throw new Error(typeof body?.error === 'string' ? body.error : `Could not mark stream ${status}`)
+    }
+  }, [streamId])
+
+  const startStatusOnlyLive = useCallback(async () => {
+    await updateStreamStatus('live')
+    setConn('live')
+    setStartedAt(Date.now())
+    setPaused(false)
+    setStatusOnlyLive(true)
+    setErrorMsg(null)
+  }, [updateStreamStatus])
+
   const goLive = useCallback(async () => {
     const comp = compositorRef.current
     if (!comp) return
@@ -285,8 +340,16 @@ export function StudioClient({ streamId, streamKey, title, channelName, userId, 
     lastBytesRef.current = 0
     lastTickRef.current = 0
 
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${proto}//${window.location.host}/api/ws/stream?key=${encodeURIComponent(streamKey)}`
+    const wsUrl = getIngestWsUrl(streamKey)
+    if (!wsUrl) {
+      try {
+        await startStatusOnlyLive()
+      } catch (err) {
+        setErrorMsg((err as Error).message)
+        setConn('error')
+      }
+      return
+    }
     const ws = new WebSocket(wsUrl)
     ws.binaryType = 'arraybuffer'
     wsRef.current = ws
@@ -339,7 +402,7 @@ export function StudioClient({ streamId, streamKey, title, channelName, userId, 
     }
 
     ws.onerror = () => {
-      setErrorMsg('WebSocket connection failed')
+      setErrorMsg('Could not reach the ingest service.')
       setConn('error')
     }
 
@@ -350,14 +413,20 @@ export function StudioClient({ streamId, streamKey, title, channelName, userId, 
       setConn((prev) => (prev === 'live' || prev === 'connecting' ? 'ended' : prev))
       if (ev.code !== 1000 && ev.reason) setErrorMsg(ev.reason)
     }
-  }, [cameraOn, screenOn, streamKey, bitratePreset])
+  }, [cameraOn, screenOn, streamKey, bitratePreset, startStatusOnlyLive])
 
   const stopStream = useCallback(() => {
     try { recorderRef.current?.state === 'recording' && recorderRef.current.stop() } catch {}
     try { wsRef.current?.close(1000, 'client stop') } catch {}
+    if (statusOnlyLive) {
+      void updateStreamStatus('ended').catch((err) => {
+        setErrorMsg((err as Error).message)
+      })
+      setStatusOnlyLive(false)
+    }
     setConn('ended')
     setPaused(false)
-  }, [])
+  }, [statusOnlyLive, updateStreamStatus])
 
   const togglePause = useCallback(() => {
     const mr = recorderRef.current
@@ -371,7 +440,73 @@ export function StudioClient({ streamId, streamKey, title, channelName, userId, 
     }
   }, [])
 
+  useEffect(() => {
+    if (conn !== 'live' || !statusOnlyLive) return
+
+    let cancelled = false
+    const peers = p2pPeersRef.current
+    const handledOffers = handledOffersRef.current
+    async function answerOffers() {
+      const comp = compositorRef.current
+      if (!comp) return
+      try {
+        const res = await fetch(`/api/streams/${streamId}/webrtc?role=host`, { cache: 'no-store' })
+        if (!res.ok || cancelled) return
+        const json = await res.json() as {
+          data?: Array<{ id: string; viewer_id: string; payload: string }>
+        }
+
+        for (const offer of json.data ?? []) {
+          if (handledOffers.has(offer.id)) continue
+          handledOffers.add(offer.id)
+
+          peers.get(offer.viewer_id)?.close()
+          const pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+          })
+          peers.set(offer.viewer_id, pc)
+
+          const media = comp.captureStream()
+          media.getTracks().forEach((track) => pc.addTrack(track, media))
+          await pc.setRemoteDescription(JSON.parse(offer.payload) as RTCSessionDescriptionInit)
+          const answer = await pc.createAnswer()
+          await pc.setLocalDescription(answer)
+          await waitForIceGathering(pc)
+
+          await fetch(`/api/streams/${streamId}/webrtc`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              viewerId: offer.viewer_id,
+              type: 'host-answer',
+              payload: pc.localDescription
+            })
+          })
+        }
+      } catch (err) {
+        console.error('[webrtc host]', err)
+      }
+    }
+
+    void answerOffers()
+    const timer = window.setInterval(answerOffers, 1500)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+      peers.forEach((pc) => pc.close())
+      peers.clear()
+      handledOffers.clear()
+    }
+  }, [conn, statusOnlyLive, streamId])
+
   const elapsed = startedAt ? now - startedAt : 0
+  const canUseObs = Boolean(rtmpIngestUrl)
+
+  const copyValue = useCallback(async (label: string, value: string) => {
+    await navigator.clipboard.writeText(value)
+    setCopied(label)
+    window.setTimeout(() => setCopied(null), 1600)
+  }, [])
 
   const statusPill = useMemo(() => {
     switch (conn) {
@@ -646,6 +781,12 @@ export function StudioClient({ streamId, streamKey, title, channelName, userId, 
               <span>{errorMsg}</span>
             </div>
           )}
+          {statusOnlyLive && !errorMsg && (
+            <div className="absolute left-4 right-4 top-4 flex items-start gap-2 rounded-lg border border-amber-900/60 bg-amber-950/70 px-3 py-2 text-sm text-amber-100 backdrop-blur">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>Browser live is active. Keep this Studio tab open so viewers can connect to your camera.</span>
+            </div>
+          )}
         </div>
 
         {/* Transport bar */}
@@ -694,16 +835,36 @@ export function StudioClient({ streamId, streamKey, title, channelName, userId, 
 
           <div className="ml-auto flex items-center gap-2">
             {conn !== 'live' && conn !== 'connecting' ? (
-              <Button
-                variant="primary"
-                size="md"
-                onClick={goLive}
-                disabled={!cameraOn && !screenOn}
-                className="gap-2"
-              >
-                <Play className="h-4 w-4" />
-                Go Live
-              </Button>
+              <div className="flex flex-col items-end gap-1">
+                {!ingestAvailable && (
+                  <div className="mb-1 max-w-sm rounded-lg border border-amber-900/60 bg-amber-950/40 p-3 text-left text-[11px] leading-tight text-amber-100">
+                    <div className="mb-2 font-bold uppercase tracking-wider text-amber-300">Video ingest not connected</div>
+                    <p className="mb-2 text-amber-100/80">
+                      You can go live now for chat/status. Connect RTMP/WebSocket ingest later for video.
+                    </p>
+                    {canUseObs ? (
+                      <div className="space-y-2">
+                        <CopyRow label="RTMP URL" value={rtmpIngestUrl!} copied={copied === 'rtmp'} onCopy={() => copyValue('rtmp', rtmpIngestUrl!)} />
+                        <CopyRow label="Stream key" value={streamKey} copied={copied === 'key'} onCopy={() => copyValue('key', streamKey)} secret />
+                      </div>
+                    ) : (
+                      <p className="text-amber-100/80">
+                        Set NEXT_PUBLIC_RTMP_INGEST_URL for OBS, or NEXT_PUBLIC_INGEST_WS_URL for browser Go Live.
+                      </p>
+                    )}
+                  </div>
+                )}
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={goLive}
+                  disabled={!cameraOn && !screenOn}
+                  className="gap-2"
+                >
+                  <Play className="h-4 w-4" />
+                  Go Live
+                </Button>
+              </div>
             ) : (
               <Button variant="secondary" size="md" onClick={stopStream} className="gap-2 !bg-red-500 !text-white hover:!bg-red-600">
                 <Square className="h-4 w-4 fill-white" />
@@ -725,6 +886,37 @@ export function StudioClient({ streamId, streamKey, title, channelName, userId, 
       <div className="hidden border-l border-surface-3 bg-surface-1 lg:block">
         <ChatSidebar streamId={streamId} userId={userId} username={username} />
       </div>
+    </div>
+  )
+}
+
+function CopyRow({
+  label,
+  value,
+  copied,
+  onCopy,
+  secret = false
+}: {
+  label: string
+  value: string
+  copied: boolean
+  onCopy: () => void
+  secret?: boolean
+}) {
+  return (
+    <div className="grid grid-cols-[72px_1fr_auto] items-center gap-2 rounded-md bg-black/20 px-2 py-1.5 ring-1 ring-amber-900/40">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300/80">{label}</span>
+      <code className="truncate font-mono text-[11px] text-amber-50">
+        {secret ? `${value.slice(0, 6)}...${value.slice(-4)}` : value}
+      </code>
+      <button
+        type="button"
+        onClick={onCopy}
+        className="inline-flex h-6 items-center gap-1 rounded-md bg-amber-400/15 px-2 text-[10px] font-bold uppercase text-amber-100 ring-1 ring-amber-400/30 hover:bg-amber-400/25"
+      >
+        <Copy className="h-3 w-3" />
+        {copied ? 'Copied' : 'Copy'}
+      </button>
     </div>
   )
 }

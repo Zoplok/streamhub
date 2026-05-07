@@ -2,29 +2,33 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { invalidateVideoCaches } from '@/lib/redis'
+import { withApiTiming } from '@/lib/perf'
 
 const idSchema = z.string().uuid()
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  if (!idSchema.safeParse(params.id).success) {
-    return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
-  }
-  try {
-    const result = await db.query(
-      `SELECT v.*, c.name AS channel_name, c.user_id AS channel_owner_id,
-              (SELECT CAST(COUNT(*) AS SIGNED) FROM reactions r WHERE r.target_type='video' AND r.target_id=v.id AND r.type='like') AS likes,
-              (SELECT CAST(COUNT(*) AS SIGNED) FROM reactions r WHERE r.target_type='video' AND r.target_id=v.id AND r.type='dislike') AS dislikes
-       FROM videos v JOIN channels c ON c.id = v.channel_id
-       WHERE v.id=?`,
-      [params.id]
-    )
-    if (!result.rows[0]) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    await db.query('UPDATE videos SET views = views + 1 WHERE id=?', [params.id])
-    return NextResponse.json({ data: result.rows[0] })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
+  return withApiTiming('GET /api/videos/[id]', async () => {
+    if (!idSchema.safeParse(params.id).success) {
+      return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+    }
+    try {
+      const result = await db.query(
+        `SELECT v.*, c.name AS channel_name, c.user_id AS channel_owner_id,
+                (SELECT CAST(COUNT(*) AS SIGNED) FROM reactions r WHERE r.target_type='video' AND r.target_id=v.id AND r.type='like') AS likes,
+                (SELECT CAST(COUNT(*) AS SIGNED) FROM reactions r WHERE r.target_type='video' AND r.target_id=v.id AND r.type='dislike') AS dislikes
+         FROM videos v JOIN channels c ON c.id = v.channel_id
+         WHERE v.id=?`,
+        [params.id]
+      )
+      if (!result.rows[0]) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      await db.query('UPDATE videos SET views = views + 1 WHERE id=?', [params.id])
+      return NextResponse.json({ data: result.rows[0] })
+    } catch (err) {
+      console.error(err)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+  })
 }
 
 const patchSchema = z.object({
@@ -72,8 +76,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     if (!fields.length) return NextResponse.json({ data: null })
     values.push(params.id)
-    fields.push(`id=?`)
     await db.query(`UPDATE videos SET ${fields.join(', ')} WHERE id=?`, values)
+    await invalidateVideoCaches()
     return NextResponse.json({ data: { id: params.id } })
   } catch (err) {
     console.error(err)
@@ -97,6 +101,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     await db.query('DELETE FROM videos WHERE id=?', [params.id])
+    await invalidateVideoCaches()
     return NextResponse.json({ data: { deleted: true } })
   } catch (err) {
     console.error(err)

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { LivePlayer } from '@/components/live/LivePlayer'
+import { WebRtcLivePlayer } from '@/components/live/WebRtcLivePlayer'
 import { ChatSidebar } from '@/components/live/ChatSidebar'
 import { ViewerCount } from '@/components/live/ViewerCount'
 
@@ -34,6 +35,8 @@ export default async function LiveDetailPage({ params }: { params: { id: string 
       <div className="p-4">
         {stream.hls_url && stream.status === 'live' ? (
           <LivePlayer src={stream.hls_url} />
+        ) : stream.status === 'live' ? (
+          <WebRtcLivePlayer streamId={stream.id} />
         ) : (
           <div className="flex aspect-video w-full items-center justify-center rounded-lg bg-neutral-900 text-neutral-500">
             {stream.status === 'ended' ? 'Stream ended' : 'Stream offline'}

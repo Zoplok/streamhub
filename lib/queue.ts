@@ -2,6 +2,7 @@ import { unlink } from 'node:fs/promises'
 import { db } from './db'
 import { transcodeToHls } from './ffmpeg'
 import { notifyChannelSubscribers } from './notifications'
+import { invalidateVideoCaches } from './redis'
 
 interface TranscodeJob {
   videoId: string
@@ -29,6 +30,7 @@ async function drain() {
            WHERE id=?`,
           [hlsUrl, thumbnailUrl, duration, job.videoId]
         )
+        await invalidateVideoCaches()
         // Fan out a notification to every subscriber of the channel.
         try {
           const info = await db.query<{ channel_id: string; title: string; channel_name: string; user_id: string }>(

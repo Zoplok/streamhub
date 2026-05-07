@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { invalidateStreamCaches } from '@/lib/redis'
+import { withApiTiming } from '@/lib/perf'
 
 // nginx-rtmp on_publish_done webhook.
 // After the 302 rewrite on publish, `name` here is the stream UUID.
 
 async function handle(req: NextRequest) {
+  return withApiTiming(`${req.method} /api/streams/ingest-done`, async () => {
   let name = req.nextUrl.searchParams.get('name') ?? ''
   if (!name && req.method === 'POST') {
     try {
@@ -24,12 +27,14 @@ async function handle(req: NextRequest) {
        WHERE id=? OR stream_key=?`,
       [name, name]
     )
+    await invalidateStreamCaches()
     console.log('[ingest-done] stream ended:', name)
     return new NextResponse('ok', { status: 200 })
   } catch (err) {
     console.error('[ingest-done] error:', err)
     return new NextResponse('server error', { status: 500 })
   }
+  })
 }
 
 export const GET = handle
