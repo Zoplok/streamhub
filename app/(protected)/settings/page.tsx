@@ -11,21 +11,22 @@ export default async function SettingsPage() {
   const session = await auth()
   if (!session?.user) redirect('/login?callbackUrl=/settings')
 
-  const [res, channelRes] = await Promise.all([
-    db.query<{ username: string; email: string; created_at: string; role_name: string }>(
-      `SELECT u.username, u.email, u.created_at, r.name AS role_name
-       FROM users u JOIN roles r ON r.id = u.role_id
-       WHERE u.id = ? LIMIT 1`,
-      [session.user.id]
-    ),
-    db.query<{ avatar_url: string | null }>(
+  const res = await db.query<{ username: string; email: string; created_at: string; role_name: string }>(
+    `SELECT u.username, u.email, u.created_at, r.name AS role_name
+     FROM users u JOIN roles r ON r.id = u.role_id
+     WHERE u.id = ? LIMIT 1`,
+    [session.user.id]
+  )
+  const me = res.rows[0]
+  const initial = me?.username?.[0]?.toUpperCase() ?? 'U'
+  let avatarUrl: string | null = null
+  try {
+    const channelRes = await db.query<{ avatar_url: string | null }>(
       'SELECT avatar_url FROM channels WHERE user_id=? LIMIT 1',
       [session.user.id]
     )
-  ])
-  const me = res.rows[0]
-  const initial = me?.username?.[0]?.toUpperCase() ?? 'U'
-  const avatarUrl = channelRes.rows[0]?.avatar_url ?? null
+    avatarUrl = channelRes.rows[0]?.avatar_url ?? null
+  } catch { /* avatar not critical */ }
 
   return (
     <div className="px-4 py-6 md:px-6 lg:px-8">

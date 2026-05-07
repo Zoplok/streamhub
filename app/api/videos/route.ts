@@ -103,28 +103,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
+  let _step = 'init'
   try {
+    _step = 'channel-lookup'
     const channel = await db.query<{ id: string }>(
       'SELECT id FROM channels WHERE user_id=? LIMIT 1',
       [session.user.id]
     )
     if (!channel.rows[0]) {
-      return NextResponse.json({ error: 'No channel for this user' }, { status: 400 })
+      return NextResponse.json({ error: 'No channel for this user. Go to Dashboard → Channel to create one.' }, { status: 400 })
     }
 
     const videoId = randomUUID()
     const tags = parsed.data.tags.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 20)
 
-    // Persist original to S3 (kept for reprocessing) and save to a tmp path for ffmpeg
+    _step = 'read-file'
     const buf = Buffer.from(await file.arrayBuffer())
     const ext = (file.name.split('.').pop() ?? 'mp4').toLowerCase().slice(0, 5)
-    await uploadObject(`originals/${videoId}.${ext}`, buf, file.type || 'application/octet-stream')
 
+    _step = 'storage-upload'
+    await uploadObject(`originals/${videoId}.${ext}`, buf, file.type || 'video/mp4')
+
+    _step = 'tmp-write'
     const tmpDir = path.join(os.tmpdir(), 'streamhub-originals')
     await mkdir(tmpDir, { recursive: true })
     const tmpPath = path.join(tmpDir, `${videoId}.${ext}`)
     await writeFile(tmpPath, buf)
 
+    _step = 'db-insert'
     await db.query(
       `INSERT INTO videos (id, channel_id, title, description, category, status, tags)
        VALUES (?, ?, ?, ?, ?, 'processing', CAST(? AS JSON))`,
@@ -143,7 +149,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: { id: videoId, status: 'processing' } }, { status: 202 })
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error(`[upload] failed at step=${_step}`, err)
+    const detail = process.env.NODE_ENV !== 'production' && err instanceof Error ? ` (${_step}: ${err.message})` : ''
+    return NextResponse.json({ error: `Upload failed${detail}` }, { status: 500 })
   }
 }

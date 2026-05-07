@@ -15,11 +15,13 @@ export async function Navbar() {
 
   let avatarUrl: string | null = null
   if (session?.user) {
-    const r = await db.query<{ avatar_url: string | null }>(
-      'SELECT avatar_url FROM channels WHERE user_id=? LIMIT 1',
-      [session.user.id]
-    )
-    avatarUrl = r.rows[0]?.avatar_url ?? null
+    try {
+      const r = await db.query<{ avatar_url: string | null }>(
+        'SELECT avatar_url FROM channels WHERE user_id=? LIMIT 1',
+        [session.user.id]
+      )
+      avatarUrl = r.rows[0]?.avatar_url ?? null
+    } catch { /* avatar not critical – fall through to initial letter */ }
   }
 
   return (
