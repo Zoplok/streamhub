@@ -76,7 +76,8 @@ const uploadSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(5000).optional().default(''),
   category: z.string().max(50).optional().default(''),
-  tags: z.string().max(500).optional().default('')
+  tags: z.string().max(500).optional().default(''),
+  thumbnail_url: z.string().url().max(1000).optional().or(z.literal('')).default('')
 })
 
 export async function POST(req: NextRequest) {
@@ -99,7 +100,8 @@ export async function POST(req: NextRequest) {
     title: form.get('title'),
     description: form.get('description') ?? '',
     category: form.get('category') ?? '',
-    tags: form.get('tags') ?? ''
+    tags: form.get('tags') ?? '',
+    thumbnail_url: form.get('thumbnail_url') ?? ''
   })
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
@@ -135,8 +137,8 @@ export async function POST(req: NextRequest) {
 
       _step = 'db-inline-insert'
       await db.query(
-        `INSERT INTO videos (id, channel_id, title, description, category, status, tags, hls_url, duration)
-         VALUES (?, ?, ?, ?, ?, 'ready', CAST(? AS JSON), ?, 0)`,
+        `INSERT INTO videos (id, channel_id, title, description, category, status, tags, hls_url, thumbnail_url, duration)
+         VALUES (?, ?, ?, ?, ?, 'ready', CAST(? AS JSON), ?, ?, 0)`,
         [
           videoId,
           channel.rows[0].id,
@@ -144,7 +146,8 @@ export async function POST(req: NextRequest) {
           parsed.data.description,
           parsed.data.category || null,
           JSON.stringify(tags),
-          `data:${file.type || 'video/mp4'};base64,${buf.toString('base64')}`
+          `data:${file.type || 'video/mp4'};base64,${buf.toString('base64')}`,
+          parsed.data.thumbnail_url || null
         ]
       )
       await invalidateVideoCaches()
@@ -162,15 +165,16 @@ export async function POST(req: NextRequest) {
 
     _step = 'db-insert'
     await db.query(
-      `INSERT INTO videos (id, channel_id, title, description, category, status, tags)
-       VALUES (?, ?, ?, ?, ?, 'processing', CAST(? AS JSON))`,
+      `INSERT INTO videos (id, channel_id, title, description, category, status, tags, thumbnail_url)
+       VALUES (?, ?, ?, ?, ?, 'processing', CAST(? AS JSON), ?)`,
       [
         videoId,
         channel.rows[0].id,
         parsed.data.title,
         parsed.data.description,
         parsed.data.category || null,
-        JSON.stringify(tags)
+        JSON.stringify(tags),
+        parsed.data.thumbnail_url || null
       ]
     )
 

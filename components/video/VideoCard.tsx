@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ImageIcon } from 'lucide-react'
 
 interface Props {
   id: string
@@ -42,7 +43,7 @@ export function VideoCard(props: Props) {
   const initial = props.channel_name?.[0]?.toUpperCase() ?? '?'
   return (
     <Link href={`/watch/${props.id}`} className="group block">
-      <div className="relative aspect-video overflow-hidden rounded-xl bg-surface-2">
+      <div className="relative aspect-video overflow-hidden rounded-lg bg-surface-2 ring-1 ring-surface-3">
         {props.thumbnail_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -51,8 +52,9 @@ export function VideoCard(props: Props) {
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-surface-2 to-surface-3 text-xs text-neutral-500">
-            No preview
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-surface-2 to-surface-3 text-xs text-neutral-500">
+            <ImageIcon className="h-7 w-7 opacity-70" />
+            <span>No thumbnail</span>
           </div>
         )}
         {/* subtle gradient overlay */}
@@ -63,12 +65,12 @@ export function VideoCard(props: Props) {
           </span>
         ) : null}
       </div>
-      <div className="mt-3 flex gap-3">
+      <div className="mt-3 flex gap-2.5 sm:gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-surface-0">
           {initial}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-neutral-50 group-hover:text-white">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-neutral-50 group-hover:text-brand-400">
             {props.title}
           </h3>
           {props.channel_name && (

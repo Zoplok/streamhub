@@ -21,6 +21,7 @@ export default function UploadPage() {
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState('')
   const [category, setCategory] = useState('')
+  const [thumbnailUrl, setThumbnailUrl] = useState('')
   const [tone, setTone] = useState<'hype' | 'friendly' | 'informative' | 'minimal'>('friendly')
   const [hints, setHints] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -88,6 +89,7 @@ export default function UploadPage() {
     fd.append('title', title)
     fd.append('description', description)
     fd.append('tags', tags)
+    if (thumbnailUrl.trim()) fd.append('thumbnail_url', thumbnailUrl.trim())
     if (category) fd.append('category', category)
 
     const xhr = new XMLHttpRequest()
@@ -118,7 +120,7 @@ export default function UploadPage() {
       const res = await fetch('/api/videos/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: linkUrl.trim(), title, description, category, tags })
+        body: JSON.stringify({ url: linkUrl.trim(), title, description, category, tags, thumbnail_url: thumbnailUrl.trim() })
       })
       const json = await res.json() as { data?: { id: string }; error?: string }
       if (!res.ok) throw new Error(typeof json.error === 'string' ? json.error : 'Import failed')
@@ -268,6 +270,31 @@ export default function UploadPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-surface-3 bg-surface-1 p-6">
+            <h2 className="mb-4 text-base font-bold">Thumbnail</h2>
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-400">Thumbnail URL</label>
+                <Input
+                  type="url"
+                  placeholder="https://example.com/thumbnail.jpg"
+                  value={thumbnailUrl}
+                  onChange={(e) => setThumbnailUrl(e.target.value)}
+                  maxLength={1000}
+                />
+                <p className="mt-1 text-[11px] text-neutral-500">Use a public image URL. Recommended ratio: 16:9.</p>
+              </div>
+              <div className="relative aspect-video overflow-hidden rounded-lg bg-surface-2 ring-1 ring-surface-3">
+                {thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumbnailUrl} alt="Thumbnail preview" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs text-neutral-500">No thumbnail</div>
+                )}
               </div>
             </div>
           </section>

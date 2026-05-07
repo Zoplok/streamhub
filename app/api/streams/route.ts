@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     }
     try {
       const result = await db.query(
-        `SELECT ls.id, ls.channel_id, ls.title, ls.status, ls.viewer_count, ls.hls_url, ls.started_at,
+        `SELECT ls.id, ls.channel_id, ls.title, ls.status, ls.viewer_count, ls.hls_url, ls.thumbnail_url, ls.category, ls.started_at,
                 c.name AS channel_name
          FROM live_streams ls JOIN channels c ON c.id = ls.channel_id
          WHERE ls.status = ?

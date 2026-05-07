@@ -21,7 +21,8 @@ const schema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(5000).optional().default(''),
   category: z.string().max(50).optional().default(''),
-  tags: z.string().max(500).optional().default('')
+  tags: z.string().max(500).optional().default(''),
+  thumbnail_url: z.string().url().max(1000).optional().or(z.literal('')).default('')
 })
 
 export async function POST(req: NextRequest) {
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { url, title, description, category, tags: tagsStr } = parsed.data
+  const { url, title, description, category, tags: tagsStr, thumbnail_url } = parsed.data
 
   let fetchRes: Response
   try {
@@ -81,9 +82,9 @@ export async function POST(req: NextRequest) {
 
   if (!hasPersistentObjectStorage()) {
     await db.query(
-      `INSERT INTO videos (id, channel_id, title, description, category, status, tags, hls_url, duration)
-       VALUES (?, ?, ?, ?, ?, 'ready', CAST(? AS JSON), ?, 0)`,
-      [videoId, channel.rows[0].id, title, description, category || null, JSON.stringify(tags), url]
+      `INSERT INTO videos (id, channel_id, title, description, category, status, tags, hls_url, thumbnail_url, duration)
+       VALUES (?, ?, ?, ?, ?, 'ready', CAST(? AS JSON), ?, ?, 0)`,
+      [videoId, channel.rows[0].id, title, description, category || null, JSON.stringify(tags), url, thumbnail_url || null]
     )
     await invalidateVideoCaches()
     return NextResponse.json({ data: { id: videoId, status: 'ready' } }, { status: 201 })
@@ -113,9 +114,9 @@ export async function POST(req: NextRequest) {
     await uploadObject(`originals/${videoId}.${ext}`, buf, contentType || 'video/mp4')
 
     await db.query(
-      `INSERT INTO videos (id, channel_id, title, description, category, status, tags)
-       VALUES (?, ?, ?, ?, ?, 'processing', CAST(? AS JSON))`,
-      [videoId, channel.rows[0].id, title, description, category || null, JSON.stringify(tags)]
+      `INSERT INTO videos (id, channel_id, title, description, category, status, tags, thumbnail_url)
+       VALUES (?, ?, ?, ?, ?, 'processing', CAST(? AS JSON), ?)`,
+      [videoId, channel.rows[0].id, title, description, category || null, JSON.stringify(tags), thumbnail_url || null]
     )
 
     enqueueTranscode({ videoId, inputPath: tmpPath })

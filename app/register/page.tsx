@@ -2,13 +2,12 @@
 
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { AlertCircle, Eye, Lock, Mail, Play, User, UserPlus, Video } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
 export default function RegisterPage() {
-  const router = useRouter()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,7 +32,7 @@ export default function RegisterPage() {
     }
     await signIn('credentials', { email, password, redirect: false })
     setLoading(false)
-    router.push('/')
+    window.location.assign('/')
   }
 
   return (
@@ -41,7 +40,7 @@ export default function RegisterPage() {
       <div className="rounded-2xl border border-surface-3 bg-surface-1 p-8 shadow-2xl">
         <div className="mb-6 flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-surface-0 shadow-glow">
-            <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current"><path d="M8 5v14l11-7z" /></svg>
+            <Play className="h-5 w-5 fill-current" />
           </span>
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight">Join StreamHub</h1>
@@ -49,9 +48,40 @@ export default function RegisterPage() {
           </div>
         </div>
         <form onSubmit={onSubmit} className="space-y-3">
-          <Input placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required minLength={3} />
-          <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Input type="password" placeholder="Password (min 8)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+          <div className="relative">
+            <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+            <Input
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="pl-10"
+              required
+              minLength={3}
+            />
+          </div>
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+            <Input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="pl-10"
+              required
+            />
+          </div>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+            <Input
+              type="password"
+              placeholder="Password (min 8)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="pl-10"
+              required
+              minLength={8}
+            />
+          </div>
           <div className="grid grid-cols-2 gap-2 pt-1">
             <label
               className={`flex cursor-pointer flex-col rounded-lg border p-3 text-sm transition-colors ${
@@ -61,6 +91,9 @@ export default function RegisterPage() {
               }`}
             >
               <input type="radio" className="sr-only" checked={role === 'viewer'} onChange={() => setRole('viewer')} />
+              <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface-0 text-neutral-300">
+                <Eye className="h-4 w-4" />
+              </span>
               <span className="font-semibold">Viewer</span>
               <span className="mt-0.5 text-xs text-neutral-500">Watch & chat</span>
             </label>
@@ -72,16 +105,21 @@ export default function RegisterPage() {
               }`}
             >
               <input type="radio" className="sr-only" checked={role === 'creator'} onChange={() => setRole('creator')} />
+              <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface-0 text-neutral-300">
+                <Video className="h-4 w-4" />
+              </span>
               <span className="font-semibold">Creator</span>
               <span className="mt-0.5 text-xs text-neutral-500">Upload & stream</span>
             </label>
           </div>
           {error && (
-            <p className="rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-sm text-red-300">
+            <p className="flex items-center gap-2 rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-sm text-red-300">
+              <AlertCircle className="h-4 w-4 shrink-0" />
               {error}
             </p>
           )}
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
+            {!loading && <UserPlus className="h-4 w-4" />}
             {loading ? 'Creating…' : 'Create account'}
           </Button>
         </form>

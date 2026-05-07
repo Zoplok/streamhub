@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, Mic } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
@@ -34,13 +34,6 @@ export function SearchBar() {
           <Search className="h-4 w-4" />
         </button>
       </div>
-      <button
-        type="button"
-        className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-neutral-300 transition-colors hover:bg-surface-3 hover:text-white md:inline-flex"
-        aria-label="Voice search"
-      >
-        <Mic className="h-4 w-4" />
-      </button>
     </form>
   )
 }

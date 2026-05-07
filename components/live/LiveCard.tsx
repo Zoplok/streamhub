@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Eye } from 'lucide-react'
+import { Eye, Radio } from 'lucide-react'
 
 interface Props {
   id: string
@@ -21,7 +21,7 @@ export function LiveCard(p: Props) {
   return (
     <Link
       href={`/live/${p.id}`}
-      className="group block overflow-hidden rounded-xl bg-surface-1 ring-1 ring-surface-3 transition-all hover:ring-brand-500/60 hover:shadow-glow"
+      className="group block overflow-hidden rounded-lg bg-surface-1 ring-1 ring-surface-3 transition-all hover:ring-brand-500/60 hover:shadow-glow"
     >
       <div className="relative aspect-video overflow-hidden bg-surface-2">
         {p.thumbnail_url ? (
@@ -32,8 +32,9 @@ export function LiveCard(p: Props) {
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-surface-2 via-surface-3 to-surface-1">
-            <span className="text-3xl font-black tracking-widest text-surface-5">LIVE</span>
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-surface-2 via-surface-3 to-surface-1">
+            <Radio className="h-8 w-8 text-red-400" />
+            <span className="text-sm font-black uppercase tracking-widest text-surface-5">Live thumbnail</span>
           </div>
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -62,7 +63,7 @@ export function LiveCard(p: Props) {
           {initial}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-1 text-sm font-semibold text-neutral-50 group-hover:text-white">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-neutral-50 group-hover:text-brand-400">
             {p.title}
           </h3>
           <p className="mt-0.5 truncate text-xs text-neutral-400">{p.channel_name}</p>

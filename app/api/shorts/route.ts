@@ -3,13 +3,14 @@ import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { uploadObject } from '@/lib/s3'
+import { hasPersistentObjectStorage, uploadObject } from '@/lib/s3'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
 const createSchema = z.object({
-  title: z.string().min(1).max(150)
+  title: z.string().min(1).max(150),
+  thumbnail_url: z.string().url().max(1000).optional().or(z.literal('')).default('')
 })
 
 export async function POST(req: NextRequest) {
@@ -26,7 +27,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Max 100MB' }, { status: 413 })
   }
 
-  const parsed = createSchema.safeParse({ title: form.get('title') })
+  const parsed = createSchema.safeParse({
+    title: form.get('title'),
+    thumbnail_url: form.get('thumbnail_url') ?? ''
+  })
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
@@ -42,11 +46,22 @@ export async function POST(req: NextRequest) {
     const ext = (file.name.split('.').pop() ?? 'mp4').toLowerCase().slice(0, 5)
     const key = `shorts/${id}.${ext}`
     const buf = Buffer.from(await file.arrayBuffer())
+    if (!hasPersistentObjectStorage()) {
+      if (buf.byteLength > 25 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Max 25MB unless S3/R2 storage is configured.' }, { status: 413 })
+      }
+      const dataUrl = `data:${file.type || 'video/mp4'};base64,${buf.toString('base64')}`
+      await db.query(
+        `INSERT INTO shorts (id, channel_id, title, video_url, thumbnail_url) VALUES (?,?,?,?,?)`,
+        [id, channel.rows[0].id, parsed.data.title, dataUrl, parsed.data.thumbnail_url || null]
+      )
+      return NextResponse.json({ data: { id, video_url: dataUrl } }, { status: 201 })
+    }
     const url = await uploadObject(key, buf, file.type || 'video/mp4')
 
     await db.query(
-      `INSERT INTO shorts (id, channel_id, title, video_url) VALUES (?,?,?,?)`,
-      [id, channel.rows[0].id, parsed.data.title, url]
+      `INSERT INTO shorts (id, channel_id, title, video_url, thumbnail_url) VALUES (?,?,?,?,?)`,
+      [id, channel.rows[0].id, parsed.data.title, url, parsed.data.thumbnail_url || null]
     )
     return NextResponse.json({ data: { id, video_url: url } }, { status: 201 })
   } catch (err) {

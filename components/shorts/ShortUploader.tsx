@@ -15,6 +15,7 @@ export function ShortUploader() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [duration, setDuration] = useState<number | null>(null)
   const [title, setTitle] = useState('')
+  const [thumbnailUrl, setThumbnailUrl] = useState('')
   const [progress, setProgress] = useState(0)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,6 +73,7 @@ export function ShortUploader() {
     const fd = new FormData()
     fd.append('file', file)
     fd.append('title', title.trim())
+    if (thumbnailUrl.trim()) fd.append('thumbnail_url', thumbnailUrl.trim())
 
     const xhr = new XMLHttpRequest()
     xhr.open('POST', '/api/shorts', true)
@@ -117,6 +119,20 @@ export function ShortUploader() {
             required
           />
           <p className="mt-1 text-[11px] text-neutral-500">{title.length}/150</p>
+        </div>
+
+        <div className="rounded-2xl border border-surface-3 bg-surface-1 p-6">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-neutral-400">
+            Thumbnail URL
+          </label>
+          <Input
+            type="url"
+            value={thumbnailUrl}
+            onChange={(e) => setThumbnailUrl(e.target.value)}
+            placeholder="https://example.com/short-cover.jpg"
+            maxLength={1000}
+          />
+          <p className="mt-1 text-[11px] text-neutral-500">Optional public image URL. Recommended ratio: 9:16.</p>
         </div>
 
         <div
@@ -233,7 +249,11 @@ export function ShortUploader() {
               Preview
             </span>
           </div>
-          <div className="flex items-center justify-center bg-black" style={{ aspectRatio: '9 / 16' }}>
+          <div className="relative flex items-center justify-center bg-black" style={{ aspectRatio: '9 / 16' }}>
+            {!previewUrl && thumbnailUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={thumbnailUrl} alt="Short thumbnail preview" className="h-full w-full object-cover" />
+            )}
             {previewUrl ? (
               // eslint-disable-next-line jsx-a11y/media-has-caption
               <video

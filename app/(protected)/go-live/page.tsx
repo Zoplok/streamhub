@@ -24,6 +24,7 @@ const CATEGORIES = ['Gaming', 'Music', 'IRL', 'Sports', 'News', 'Tech', 'Podcast
 export default function GoLivePage() {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
+  const [thumbnailUrl, setThumbnailUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ id: string; stream_key: string; rtmp_url: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -89,7 +90,7 @@ export default function GoLivePage() {
       const res = await fetch('/api/streams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, category: category || null })
+        body: JSON.stringify({ title, category: category || null, thumbnail_url: thumbnailUrl.trim() || null })
       })
       const json = await res.json()
       if (!res.ok) {
@@ -166,6 +167,20 @@ export default function GoLivePage() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                    Live thumbnail URL
+                  </label>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/live-thumbnail.jpg"
+                    value={thumbnailUrl}
+                    onChange={(e) => setThumbnailUrl(e.target.value)}
+                    maxLength={1000}
+                  />
+                  <p className="mt-1 text-[11px] text-neutral-500">Optional public image URL. Recommended ratio: 16:9.</p>
                 </div>
               </div>
             </section>
