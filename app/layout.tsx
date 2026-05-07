@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { Navbar } from '@/components/ui/Navbar'
 import { Sidebar } from '@/components/ui/Sidebar'
 import { ThemeProvider } from '@/lib/theme'
+import { SidebarProvider } from '@/components/ui/SidebarContext'
 
 export const metadata: Metadata = {
   title: 'StreamHub — Live, Videos & Shorts',
@@ -35,11 +36,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <ThemeProvider>
-          <Navbar />
-          <div className="flex">
-            <Sidebar />
-            <main className="min-h-[calc(100vh-3.5rem)] flex-1 transition-colors duration-200">{children}</main>
-          </div>
+          <SidebarProvider>
+            <Navbar />
+            <div className="flex">
+              <Sidebar />
+              <main className="min-h-[calc(100vh-3.5rem)] flex-1 transition-colors duration-200">{children}</main>
+            </div>
+          </SidebarProvider>
         </ThemeProvider>
       </body>
     </html>

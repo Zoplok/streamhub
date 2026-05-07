@@ -5,6 +5,7 @@ import { SearchBar } from './SearchBar'
 import { Video, Radio, User } from 'lucide-react'
 import { NotificationBell } from './NotificationBell'
 import { ThemeToggle } from './ThemeToggle'
+import { MobileMenuButton } from './MobileMenuButton'
 
 export async function Navbar() {
   const session = await auth()
@@ -14,6 +15,9 @@ export async function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-surface-3 bg-surface-0/90 backdrop-blur">
       <div className="flex h-14 items-center gap-4 px-4 md:px-6">
+        {/* Hamburger – mobile only */}
+        <MobileMenuButton />
+
         {/* Brand */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500 text-surface-0 shadow-glow">

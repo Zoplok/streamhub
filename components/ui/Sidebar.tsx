@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect } from 'react'
 import {
   Home,
   Flame,
@@ -18,6 +19,7 @@ import {
   Settings
 } from 'lucide-react'
 import type { ComponentType } from 'react'
+import { useSidebar } from './SidebarContext'
 
 interface Item {
   href: string
@@ -79,10 +81,9 @@ function Section({ title, items, pathname }: { title?: string; items: Item[]; pa
   )
 }
 
-export function Sidebar() {
-  const pathname = usePathname()
+function SidebarContent({ pathname }: { pathname: string }) {
   return (
-    <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-surface-3 bg-surface-1 px-3 py-3 lg:block">
+    <>
       <Section items={main} pathname={pathname} />
       <div className="my-2 border-t border-surface-3" />
       <Section title="You" items={you} pathname={pathname} />
@@ -95,6 +96,46 @@ export function Sidebar() {
       <p className="mt-4 px-3 text-[11px] leading-relaxed text-neutral-600">
         StreamHub © {new Date().getFullYear()}
       </p>
-    </aside>
+    </>
+  )
+}
+
+export function Sidebar() {
+  const pathname = usePathname()
+  const { open, close } = useSidebar()
+
+  useEffect(() => {
+    close()
+  }, [pathname, close])
+
+  return (
+    <>
+      {/* Mobile backdrop */}
+      <div
+        className={[
+          'fixed inset-0 z-30 bg-black/60 transition-opacity duration-200 lg:hidden',
+          open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        ].join(' ')}
+        onClick={close}
+        aria-hidden="true"
+      />
+
+      {/* Mobile drawer */}
+      <aside
+        className={[
+          'fixed left-0 top-14 z-40 h-[calc(100vh-3.5rem)] w-64 overflow-y-auto',
+          'border-r border-surface-3 bg-surface-1 px-3 py-3',
+          'transition-transform duration-200 ease-in-out lg:hidden',
+          open ? 'translate-x-0' : '-translate-x-full'
+        ].join(' ')}
+      >
+        <SidebarContent pathname={pathname} />
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-surface-3 bg-surface-1 px-3 py-3 lg:block">
+        <SidebarContent pathname={pathname} />
+      </aside>
+    </>
   )
 }
