@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
-import { LivePlayer } from '@/components/live/LivePlayer'
-import { WebRtcLivePlayer } from '@/components/live/WebRtcLivePlayer'
+import { LiveStreamPlayer } from '@/components/live/LiveStreamPlayer'
 import { ChatSidebar } from '@/components/live/ChatSidebar'
 import { ViewerCount } from '@/components/live/ViewerCount'
 
@@ -31,20 +30,16 @@ export default async function LiveDetailPage({ params }: { params: { id: string 
   if (!stream) notFound()
 
   return (
-    <div className="grid grid-cols-1 gap-0 lg:grid-cols-[1fr_360px] lg:h-[calc(100vh-3.5rem)]">
-      <div className="p-4">
-        {stream.hls_url && stream.status === 'live' ? (
-          <LivePlayer src={stream.hls_url} />
-        ) : stream.status === 'live' ? (
-          <WebRtcLivePlayer streamId={stream.id} />
-        ) : (
-          <div className="flex aspect-video w-full items-center justify-center rounded-lg bg-neutral-900 text-neutral-500">
-            {stream.status === 'ended' ? 'Stream ended' : 'Stream offline'}
-          </div>
-        )}
-        <div className="mt-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">{stream.title}</h1>
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
+      <div className="flex flex-col gap-0 overflow-y-auto p-4 lg:p-5">
+        <LiveStreamPlayer
+          streamId={stream.id}
+          initialStatus={stream.status}
+          initialHlsUrl={stream.hls_url}
+        />
+        <div className="mt-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold">{stream.title}</h1>
             <p className="text-sm text-neutral-400">{stream.channel_name}</p>
           </div>
           <ViewerCount count={stream.viewer_count} live={stream.status === 'live'} />

@@ -35,7 +35,7 @@ export function LivePlayer({ src }: { src: string }) {
   return (
     <video
       ref={videoRef}
-      className="aspect-video w-full bg-black"
+      className="h-full w-full bg-black object-contain"
       controls
       preload="metadata"
       autoPlay

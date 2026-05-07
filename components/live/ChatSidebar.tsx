@@ -251,7 +251,7 @@ export function ChatSidebar({
   }
 
   return (
-    <aside className="flex h-full flex-col border-l border-surface-3 bg-surface-1">
+    <aside className="flex h-[500px] flex-col border-t border-surface-3 bg-surface-1 lg:h-full lg:border-l lg:border-t-0">
       <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-extrabold tracking-tight">Live chat</span>
@@ -285,7 +285,7 @@ export function ChatSidebar({
         </div>
       )}
 
-      <ul ref={listRef} className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
+      <ul ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
         {messages.length === 0 && (
           <li className="mt-8 text-center text-xs text-neutral-500">
             Be the first to say hi
@@ -349,7 +349,7 @@ export function ChatSidebar({
       </ul>
 
       {userId ? (
-        <div className="border-t border-surface-3 p-3">
+        <div className="shrink-0 border-t border-surface-3 p-3">
           {blocked && (
             <div className="mb-2 rounded-md border border-red-900/60 bg-red-950/40 px-2.5 py-1.5 text-[11px] text-red-300">
               <Shield className="mr-1 inline h-3 w-3" />
