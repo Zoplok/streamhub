@@ -1,9 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { io, Socket } from 'socket.io-client'
 import { Button } from '@/components/ui/Button'
-import { Bot, Send, Shield, Sparkles, Users } from 'lucide-react'
+import { Bot, Send, Shield, Sparkles, Users, Smile, ImageIcon, X, Search } from 'lucide-react'
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
 interface ChatMsg {
   id: string
@@ -15,6 +18,15 @@ interface ChatMsg {
   flagged?: string
   bot?: boolean
 }
+
+interface GifResult {
+  id: string
+  title: string
+  preview: string
+  url: string
+}
+
+const TENOR_KEY = process.env.NEXT_PUBLIC_TENOR_API_KEY ?? 'LIVDSRZULELA'
 
 export function ChatSidebar({
   streamId,
@@ -32,8 +44,15 @@ export function ChatSidebar({
   const [botThinking, setBotThinking] = useState(false)
   const [usingPolling, setUsingPolling] = useState(false)
   const [realtimeUnavailable, setRealtimeUnavailable] = useState(false)
+  const [showEmoji, setShowEmoji] = useState(false)
+  const [showGif, setShowGif] = useState(false)
+  const [gifQuery, setGifQuery] = useState('')
+  const [gifs, setGifs] = useState<GifResult[]>([])
+  const [gifLoading, setGifLoading] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const listRef = useRef<HTMLUListElement | null>(null)
+  const emojiRef = useRef<HTMLDivElement | null>(null)
+  const gifRef = useRef<HTMLDivElement | null>(null)
   const seenMessagesRef = useRef<Set<string>>(new Set())
   const lastMessageAtRef = useRef<string | null>(null)
 
@@ -56,6 +75,79 @@ export function ChatSidebar({
       return merged.slice(-200)
     })
   }, [])
+
+  // Always poll viewer count from REST API as a reliable fallback
+  useEffect(() => {
+    async function fetchViewers() {
+      try {
+        const res = await fetch(`/api/streams/${streamId}`, { cache: 'no-store' })
+        if (!res.ok) return
+        const json = await res.json() as { data?: { viewer_count?: number } }
+        if (typeof json.data?.viewer_count === 'number') {
+          setViewers(json.data.viewer_count)
+        }
+      } catch { /* ignore */ }
+    }
+    fetchViewers()
+    const timer = window.setInterval(fetchViewers, 10_000)
+    return () => window.clearInterval(timer)
+  }, [streamId])
+
+  // Close emoji / gif panels on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) setShowEmoji(false)
+      if (gifRef.current && !gifRef.current.contains(e.target as Node)) setShowGif(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const searchGifs = useCallback(async (q: string) => {
+    if (!q.trim()) return
+    setGifLoading(true)
+    try {
+      const res = await fetch(
+        `https://api.tenor.com/v1/search?q=${encodeURIComponent(q)}&key=${TENOR_KEY}&limit=16&media_filter=minimal`
+      )
+      const json = await res.json() as {
+        results?: Array<{
+          id: string
+          title: string
+          media: Array<{ tinygif?: { url: string }; gif?: { url: string } }>
+        }>
+      }
+      setGifs((json.results ?? []).map(r => ({
+        id: r.id,
+        title: r.title,
+        preview: r.media[0]?.tinygif?.url ?? '',
+        url: r.media[0]?.gif?.url ?? r.media[0]?.tinygif?.url ?? ''
+      })))
+    } catch {
+      setGifs([])
+    } finally {
+      setGifLoading(false)
+    }
+  }, [])
+
+  const sendGif = useCallback((gifUrl: string) => {
+    const content = `[gif:${gifUrl}]`
+    if (usingPolling) {
+      fetch(`/api/streams/${streamId}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      })
+        .then(r => r.json())
+        .then((json: { data?: ChatMsg[] }) => mergeMessages(json.data ?? []))
+        .catch(() => {})
+    } else {
+      socketRef.current?.emit('chat:send', { streamId, userId, username, content })
+    }
+    setShowGif(false)
+    setGifQuery('')
+    setGifs([])
+  }, [usingPolling, streamId, userId, username, mergeMessages])
 
   useEffect(() => {
     const realtimeUrl = process.env.NEXT_PUBLIC_REALTIME_URL?.replace(/\/$/, '')
@@ -118,6 +210,11 @@ export function ChatSidebar({
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
+
+  function insertEmoji(emojiData: { emoji: string }) {
+    setText(prev => prev + emojiData.emoji)
+    setShowEmoji(false)
+  }
 
   async function send(e: React.FormEvent) {
     e.preventDefault()
@@ -220,9 +317,18 @@ export function ChatSidebar({
                 </span>
               )}
             </div>
-            <p className={`mt-0.5 break-words ${m.bot ? 'text-neutral-100' : 'text-neutral-200'}`}>
-              {m.content}
-            </p>
+            {/^\[gif:(https?:\/\/[^\]]+)\]$/.test(m.content) ? (
+              <img
+                src={m.content.slice(5, -1)}
+                alt="GIF"
+                className="mt-1 max-h-32 rounded-lg object-contain"
+                loading="lazy"
+              />
+            ) : (
+              <p className={`mt-0.5 break-words ${m.bot ? 'text-neutral-100' : 'text-neutral-200'}`}>
+                {m.content}
+              </p>
+            )}
           </li>
         ))}
         {botThinking && (
@@ -250,7 +356,82 @@ export function ChatSidebar({
               Blocked by AI moderation: {blocked}
             </div>
           )}
-          <form onSubmit={send} className="flex items-center gap-2">
+
+          {/* GIF picker panel */}
+          {showGif && (
+            <div ref={gifRef} className="mb-2 rounded-xl border border-surface-3 bg-surface-2 p-2 shadow-xl">
+              <div className="mb-2 flex items-center gap-2">
+                <div className="flex flex-1 items-center gap-1.5 rounded-lg bg-surface-1 px-2 py-1.5 ring-1 ring-surface-3 focus-within:ring-brand-500">
+                  <Search className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
+                  <input
+                    autoFocus
+                    value={gifQuery}
+                    onChange={e => setGifQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && searchGifs(gifQuery)}
+                    placeholder="Search GIFs..."
+                    className="w-full bg-transparent text-xs text-neutral-100 placeholder:text-neutral-500 focus:outline-none"
+                  />
+                </div>
+                <button onClick={() => searchGifs(gifQuery)} className="rounded-lg bg-brand-500 px-2 py-1.5 text-xs font-semibold text-black hover:bg-brand-400">
+                  Go
+                </button>
+                <button onClick={() => setShowGif(false)} className="text-neutral-400 hover:text-neutral-200">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {gifLoading && <p className="py-4 text-center text-xs text-neutral-500">Searching…</p>}
+              {!gifLoading && gifs.length === 0 && gifQuery && (
+                <p className="py-4 text-center text-xs text-neutral-500">No GIFs found</p>
+              )}
+              {!gifLoading && gifs.length === 0 && !gifQuery && (
+                <p className="py-4 text-center text-xs text-neutral-500">Type to search GIFs</p>
+              )}
+              <div className="grid max-h-48 grid-cols-2 gap-1 overflow-y-auto">
+                {gifs.map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => sendGif(g.url)}
+                    className="overflow-hidden rounded-lg hover:opacity-80 transition-opacity"
+                    title={g.title}
+                  >
+                    <img src={g.preview} alt={g.title} className="h-20 w-full object-cover" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Emoji picker panel */}
+          {showEmoji && (
+            <div ref={emojiRef} className="mb-2">
+              <EmojiPicker
+                onEmojiClick={insertEmoji}
+                width="100%"
+                height={320}
+                searchDisabled={false}
+                skinTonesDisabled
+                previewConfig={{ showPreview: false }}
+              />
+            </div>
+          )}
+
+          <form onSubmit={send} className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => { setShowEmoji(v => !v); setShowGif(false) }}
+              className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:bg-surface-2 hover:text-neutral-200 transition-colors"
+              title="Emoji"
+            >
+              <Smile className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowGif(v => !v); setShowEmoji(false) }}
+              className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:bg-surface-2 hover:text-neutral-200 transition-colors"
+              title="GIF"
+            >
+              <ImageIcon className="h-4 w-4" />
+            </button>
             <div className="flex h-10 flex-1 items-center overflow-hidden rounded-full bg-surface-2 ring-1 ring-surface-3 focus-within:ring-brand-500">
               <input
                 value={text}
