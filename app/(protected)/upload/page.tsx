@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { UploadCloud, Film, Sparkles, X, Wand2, Check } from 'lucide-react'
+import { UploadCloud, Film, Sparkles, X, Wand2, Check, Link2, Loader2 } from 'lucide-react'
 
 const CATEGORIES = ['Gaming', 'Music', 'Podcasts', 'Sports', 'News', 'Film', 'IRL', 'Tech', 'Cooking', 'Education']
 const TONES = [
@@ -30,6 +30,8 @@ export default function UploadPage() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiMeta, setAiMeta] = useState<{ fallback?: boolean; hashtags?: string[] } | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [mode, setMode] = useState<'file' | 'link'>('file')
+  const [linkUrl, setLinkUrl] = useState('')
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   function pickFile(f: File | null) {
@@ -76,10 +78,8 @@ export default function UploadPage() {
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!file) {
-      setError('Please select a video file.')
-      return
-    }
+    if (mode === 'link') { void submitViaLink(); return }
+    if (!file) { setError('Please select a video file.'); return }
     setLoading(true)
     setError(null)
 
@@ -98,26 +98,36 @@ export default function UploadPage() {
     xhr.onload = () => {
       setLoading(false)
       if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const json = JSON.parse(xhr.responseText)
-          router.push(`/watch/${json.data.id}`)
-        } catch {
-          router.push('/dashboard')
-        }
+        try { router.push(`/watch/${JSON.parse(xhr.responseText).data.id}`) }
+        catch { router.push('/dashboard') }
       } else {
-        try {
-          const j = JSON.parse(xhr.responseText)
-          setError(typeof j.error === 'string' ? j.error : 'Upload failed')
-        } catch {
-          setError(`Upload failed (${xhr.status})`)
-        }
+        try { setError(typeof JSON.parse(xhr.responseText).error === 'string' ? JSON.parse(xhr.responseText).error : 'Upload failed') }
+        catch { setError(`Upload failed (${xhr.status})`) }
       }
     }
-    xhr.onerror = () => {
-      setLoading(false)
-      setError('Network error during upload')
-    }
+    xhr.onerror = () => { setLoading(false); setError('Network error during upload') }
     xhr.send(fd)
+  }
+
+  async function submitViaLink() {
+    if (!linkUrl.trim()) { setError('Please enter a video URL.'); return }
+    if (!title.trim()) { setError('Please enter a title.'); return }
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/videos/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: linkUrl.trim(), title, description, category, tags })
+      })
+      const json = await res.json() as { data?: { id: string }; error?: string }
+      if (!res.ok) throw new Error(typeof json.error === 'string' ? json.error : 'Import failed')
+      router.push(`/watch/${json.data!.id}`)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -132,8 +142,58 @@ export default function UploadPage() {
         />
 
         <form onSubmit={submit} className="space-y-5">
+          {/* Mode tabs */}
+          <div className="flex gap-1 rounded-xl border border-surface-3 bg-surface-1 p-1">
+            <button
+              type="button"
+              onClick={() => { setMode('file'); setError(null) }}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition-colors ${
+                mode === 'file' ? 'bg-brand-500 text-black' : 'text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              <UploadCloud className="h-4 w-4" />
+              Upload file
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('link'); setError(null) }}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition-colors ${
+                mode === 'link' ? 'bg-brand-500 text-black' : 'text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              <Link2 className="h-4 w-4" />
+              Import via link
+            </button>
+          </div>
+
+          {/* Link import panel */}
+          {mode === 'link' && (
+            <div className="rounded-2xl border border-surface-3 bg-surface-1 p-6">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-500/10 ring-1 ring-brand-500/30">
+                  <Link2 className="h-5 w-5 text-brand-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Direct video URL</p>
+                  <p className="text-xs text-neutral-500">Paste a public direct link to an MP4, WebM, MOV, or other video file.</p>
+                </div>
+              </div>
+              <input
+                type="url"
+                value={linkUrl}
+                onChange={e => setLinkUrl(e.target.value)}
+                placeholder="https://example.com/video.mp4"
+                className="w-full rounded-lg border border-surface-3 bg-surface-0 px-4 py-2.5 text-sm text-neutral-100 placeholder-neutral-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                required={mode === 'link'}
+              />
+              <p className="mt-2 text-[11px] text-neutral-500">
+                Supported: direct links ending in .mp4 .webm .mov .avi .mkv and more. YouTube or streaming pages are not supported — use a direct file URL.
+              </p>
+            </div>
+          )}
+
           {/* File dropzone */}
-          <div
+          {mode === 'file' && <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
             onDragLeave={() => setDragOver(false)}
             onDrop={(e) => {
@@ -176,7 +236,7 @@ export default function UploadPage() {
                 </button>
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Basics */}
           <section className="rounded-2xl border border-surface-3 bg-surface-1 p-6">
@@ -322,9 +382,21 @@ export default function UploadPage() {
           )}
 
           <div className="flex items-center justify-end gap-3">
-            <Button type="submit" variant="primary" size="lg" disabled={loading || !file || !title.trim()} className="gap-2">
-              <UploadCloud className="h-4 w-4" />
-              {loading ? `Uploading ${progress}%` : 'Publish video'}
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              disabled={loading || (mode === 'file' ? !file : !linkUrl.trim()) || !title.trim()}
+              className="gap-2"
+            >
+              {loading
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : mode === 'link' ? <Link2 className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />
+              }
+              {loading
+                ? (mode === 'file' ? `Uploading ${progress}%` : 'Importing…')
+                : (mode === 'link' ? 'Import & publish' : 'Publish video')
+              }
             </Button>
           </div>
         </form>
