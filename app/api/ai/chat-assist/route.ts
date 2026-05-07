@@ -81,7 +81,8 @@ Started at: ${stream.started_at ?? 'n/a'}`
       return NextResponse.json({ data: { reply: '🤖 Too many questions at once — try again in a minute.' } })
     }
     if (e.status === 401 || e.status === 403) {
-      return NextResponse.json({ data: { reply: '🤖 My API key was rejected. Ask an admin to check the AI config.' } })
+      const fallback = `Hey${username ? ` @${username}` : ''}! StreamBot here 🤖 — I'm not fully online yet. Ask the streamer about "${stream?.title ?? 'this stream'}" in chat!`
+      return NextResponse.json({ data: { reply: fallback, fallback: true } })
     }
     if (e.status === 404) {
       return NextResponse.json({ data: { reply: "🤖 That model isn't available on the configured provider." } })
