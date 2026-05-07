@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { io, Socket } from 'socket.io-client'
 import { Button } from '@/components/ui/Button'
-import { Bot, Send, Shield, Sparkles, Users, Smile, ImageIcon, X, Search } from 'lucide-react'
+import { Bot, Send, Shield, Sparkles, Users, Smile, ImageIcon, X, Search, ChevronDown } from 'lucide-react'
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
@@ -28,6 +28,19 @@ interface GifResult {
 
 const TENOR_KEY = process.env.NEXT_PUBLIC_TENOR_API_KEY ?? 'LIVDSRZULELA'
 
+const USERNAME_COLORS = [
+  '#FF4500', '#FF69B4', '#1E90FF', '#00FF7F', '#FFD700',
+  '#FF6347', '#BA55D3', '#00CED1', '#FF8C00', '#7FFF00',
+  '#DC143C', '#4169E1', '#32CD32', '#FF1493', '#00BFFF',
+  '#FF7F50', '#9400D3', '#20B2AA', '#FF4081', '#76FF03'
+]
+
+function getUserColor(name: string): string {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h)
+  return USERNAME_COLORS[Math.abs(h) % USERNAME_COLORS.length]
+}
+
 export function ChatSidebar({
   streamId,
   userId,
@@ -44,6 +57,7 @@ export function ChatSidebar({
   const [botThinking, setBotThinking] = useState(false)
   const [usingPolling, setUsingPolling] = useState(false)
   const [realtimeUnavailable, setRealtimeUnavailable] = useState(false)
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [showEmoji, setShowEmoji] = useState(false)
   const [showGif, setShowGif] = useState(false)
   const [gifQuery, setGifQuery] = useState('')
@@ -56,6 +70,7 @@ export function ChatSidebar({
   const seenMessagesRef = useRef<Set<string>>(new Set())
   const lastMessageAtRef = useRef<string | null>(null)
   const socketOwnsViewers = useRef(false)
+  const isAtBottomRef = useRef(true)
 
   const mergeMessages = useCallback((nextMessages: ChatMsg[]) => {
     if (nextMessages.length === 0) return
@@ -214,8 +229,24 @@ export function ChatSidebar({
     }
   }, [mergeMessages, streamId])
 
-  useEffect(() => {
+  function handleScroll() {
+    const el = listRef.current
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    isAtBottomRef.current = nearBottom
+    setShowScrollBtn(!nearBottom)
+  }
+
+  function scrollToBottom() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+    isAtBottomRef.current = true
+    setShowScrollBtn(false)
+  }
+
+  useEffect(() => {
+    if (isAtBottomRef.current) {
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
+    }
   }, [messages])
 
   function insertEmoji(emojiData: { emoji: string }) {
@@ -292,68 +323,76 @@ export function ChatSidebar({
         </div>
       )}
 
-      <ul ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
-        {messages.length === 0 && (
-          <li className="mt-8 text-center text-xs text-neutral-500">
-            Be the first to say hi
-          </li>
-        )}
-        {messages.map((m) => (
-          <li
-            key={m.id}
-            className={`group rounded-lg px-2 py-1.5 text-sm leading-snug transition-colors hover:bg-surface-2 ${
-              m.bot ? 'bg-brand-500/5 ring-1 ring-brand-500/20' : ''
-            }`}
-          >
-            <div className="flex items-center gap-1.5">
-              {m.bot ? (
-                <span className="inline-flex items-center gap-1 rounded-md bg-brand-500 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-surface-0">
-                  <Bot className="h-3 w-3" />
-                  {m.username}
-                </span>
-              ) : (
-                <span className="font-semibold text-brand-400">{m.username}</span>
-              )}
-              {m.flagged && (
-                <span
-                  className="inline-flex items-center gap-0.5 rounded bg-amber-500/15 px-1 py-0.5 text-[9px] font-semibold uppercase text-amber-300 ring-1 ring-amber-500/30"
-                  title={`Flagged: ${m.flagged}`}
-                >
-                  <Shield className="h-2.5 w-2.5" />
-                  flagged
-                </span>
-              )}
-            </div>
-            {/^\[gif:(https?:\/\/[^\]]+)\]$/.test(m.content) ? (
-              <img
-                src={m.content.slice(5, -1)}
-                alt="GIF"
-                className="mt-1 max-h-32 rounded-lg object-contain"
-                loading="lazy"
-              />
-            ) : (
-              <p className={`mt-0.5 break-words ${m.bot ? 'text-neutral-100' : 'text-neutral-200'}`}>
-                {m.content}
-              </p>
-            )}
-          </li>
-        ))}
-        {botThinking && (
-          <li className="rounded-lg bg-brand-500/5 px-2 py-1.5 text-sm ring-1 ring-brand-500/20">
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-md bg-brand-500 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-surface-0">
-                <Bot className="h-3 w-3" />
+      <div className="relative min-h-0 flex-1">
+        <ul
+          ref={listRef}
+          onScroll={handleScroll}
+          className="h-full overflow-y-auto px-2 py-2"
+        >
+          {messages.length === 0 && (
+            <li className="mt-8 text-center text-xs text-neutral-500">Be the first to say hi</li>
+          )}
+          {messages.map((m) => {
+            const gifMatch = m.content.match(/^\[gif:(https?:\/\/[^\]]+)\]$/)
+            return (
+              <li
+                key={m.id}
+                className="rounded px-2 py-0.5 text-sm leading-relaxed hover:bg-white/5"
+              >
+                {m.bot ? (
+                  <span className="break-words">
+                    <span className="mr-1 inline-flex items-center gap-0.5 rounded bg-brand-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-surface-0 align-middle">
+                      <Bot className="h-2.5 w-2.5" />
+                      StreamBot
+                    </span>
+                    <span className="text-neutral-100">{m.content}</span>
+                  </span>
+                ) : gifMatch ? (
+                  <span className="break-words">
+                    <span className="mr-0.5 font-bold" style={{ color: getUserColor(m.username) }}>{m.username}</span>
+                    <span className="text-neutral-500">: </span>
+                    <img src={gifMatch[1]} alt="GIF" className="mt-1 block max-h-32 rounded-lg object-contain" loading="lazy" />
+                  </span>
+                ) : (
+                  <span className="break-words">
+                    <span className="mr-0.5 font-bold" style={{ color: getUserColor(m.username) }}>{m.username}</span>
+                    {m.flagged && (
+                      <span className="mx-1 inline-flex items-center rounded bg-amber-500/20 px-1 text-[9px] text-amber-300 align-middle" title={`Flagged: ${m.flagged}`}>
+                        <Shield className="h-2 w-2" />
+                      </span>
+                    )}
+                    <span className="text-neutral-500">: </span>
+                    <span className="text-neutral-200">{m.content}</span>
+                  </span>
+                )}
+              </li>
+            )
+          })}
+          {botThinking && (
+            <li className="rounded px-2 py-0.5 text-sm leading-relaxed hover:bg-white/5">
+              <span className="mr-1 inline-flex items-center gap-0.5 rounded bg-brand-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-surface-0 align-middle">
+                <Bot className="h-2.5 w-2.5" />
                 StreamBot
               </span>
-              <span className="flex gap-0.5">
+              <span className="inline-flex gap-0.5 align-middle">
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.3s]" />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.15s]" />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand-400" />
               </span>
-            </div>
-          </li>
+            </li>
+          )}
+        </ul>
+
+        {showScrollBtn && (
+          <button
+            onClick={scrollToBottom}
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full bg-brand-500 px-3 py-1 text-xs font-semibold text-black shadow-lg hover:bg-brand-400 transition-colors"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+            More messages
+          </button>
         )}
-      </ul>
+      </div>
 
       {userId ? (
         <div className="shrink-0 border-t border-surface-3 p-3">
