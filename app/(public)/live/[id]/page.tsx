@@ -31,7 +31,7 @@ export default async function LiveDetailPage({ params }: { params: { id: string 
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
-      <div className="flex flex-col gap-0 overflow-y-auto p-4 lg:p-5">
+      <div className="flex min-h-0 flex-col gap-0 overflow-y-auto p-4 lg:p-5">
         <LiveStreamPlayer
           streamId={stream.id}
           initialStatus={stream.status}

@@ -289,7 +289,7 @@ export function ChatSidebar({
   }
 
   return (
-    <aside className="flex h-[500px] flex-col border-t border-surface-3 bg-surface-1 lg:h-full lg:border-l lg:border-t-0">
+    <aside className="flex h-[500px] flex-col overflow-hidden border-t border-surface-3 bg-surface-1 lg:h-full lg:border-l lg:border-t-0">
       <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-extrabold tracking-tight">Live chat</span>
@@ -323,11 +323,11 @@ export function ChatSidebar({
         </div>
       )}
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         <ul
           ref={listRef}
           onScroll={handleScroll}
-          className="h-full overflow-y-auto px-2 py-2"
+          className="absolute inset-0 overflow-y-auto px-2 py-2"
         >
           {messages.length === 0 && (
             <li className="mt-8 text-center text-xs text-neutral-500">Be the first to say hi</li>
