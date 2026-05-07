@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import { LiveStreamPlayer } from '@/components/live/LiveStreamPlayer'
 import { ChatSidebar } from '@/components/live/ChatSidebar'
 import { ViewerCount } from '@/components/live/ViewerCount'
+import { StreamLikeButton } from '@/components/live/StreamLikeButton'
 
 interface StreamRow {
   id: string
@@ -42,7 +43,10 @@ export default async function LiveDetailPage({ params }: { params: { id: string 
             <h1 className="truncate text-xl font-bold">{stream.title}</h1>
             <p className="text-sm text-neutral-400">{stream.channel_name}</p>
           </div>
-          <ViewerCount count={stream.viewer_count} live={stream.status === 'live'} />
+          <div className="flex shrink-0 items-center gap-2">
+            <StreamLikeButton streamId={stream.id} />
+            <ViewerCount count={stream.viewer_count} live={stream.status === 'live'} />
+          </div>
         </div>
       </div>
       <ChatSidebar

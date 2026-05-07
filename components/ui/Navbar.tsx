@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { auth, signOut } from '@/lib/auth'
+import { db } from '@/lib/db'
 import { Button } from './Button'
 import { SearchBar } from './SearchBar'
 import { Video, Radio, User } from 'lucide-react'
@@ -11,6 +12,15 @@ export async function Navbar() {
   const session = await auth()
   const isCreator = session?.user && ['admin', 'creator'].includes(session.user.role)
   const initial = session?.user?.name?.[0]?.toUpperCase() ?? 'U'
+
+  let avatarUrl: string | null = null
+  if (session?.user) {
+    const r = await db.query<{ avatar_url: string | null }>(
+      'SELECT avatar_url FROM channels WHERE user_id=? LIMIT 1',
+      [session.user.id]
+    )
+    avatarUrl = r.rows[0]?.avatar_url ?? null
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-surface-3 bg-surface-0/90 backdrop-blur">
@@ -70,10 +80,13 @@ export async function Navbar() {
               )}
               <Link
                 href="/dashboard"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-surface-0"
+                className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-surface-0"
                 title={session.user.name ?? 'You'}
               >
-                {initial}
+                {avatarUrl
+                  ? <img src={avatarUrl} alt={session.user.name ?? 'You'} className="h-full w-full object-cover" />
+                  : initial
+                }
               </Link>
               <form action={async () => { 'use server'; await signOut({ redirectTo: '/' }) }}>
                 <Button size="sm" variant="ghost" type="submit">Sign out</Button>
