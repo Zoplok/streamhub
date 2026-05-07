@@ -55,6 +55,7 @@ export function ChatSidebar({
   const gifRef = useRef<HTMLDivElement | null>(null)
   const seenMessagesRef = useRef<Set<string>>(new Set())
   const lastMessageAtRef = useRef<string | null>(null)
+  const socketOwnsViewers = useRef(false)
 
   const mergeMessages = useCallback((nextMessages: ChatMsg[]) => {
     if (nextMessages.length === 0) return
@@ -83,7 +84,7 @@ export function ChatSidebar({
         const res = await fetch(`/api/streams/${streamId}`, { cache: 'no-store' })
         if (!res.ok) return
         const json = await res.json() as { data?: { viewer_count?: number } }
-        if (typeof json.data?.viewer_count === 'number') {
+        if (!socketOwnsViewers.current && typeof json.data?.viewer_count === 'number') {
           setViewers(json.data.viewer_count)
         }
       } catch { /* ignore */ }
@@ -195,7 +196,13 @@ export function ChatSidebar({
     s.on('chat:message', (m: ChatMsg) => {
       mergeMessages([m])
     })
-    s.on('stream:viewers', (n: number) => setViewers(n))
+    s.on('stream:viewers', (n: number) => {
+      socketOwnsViewers.current = true
+      setViewers(n)
+    })
+    s.on('disconnect', () => {
+      socketOwnsViewers.current = false
+    })
     s.on('chat:blocked', (b: { reason: string }) => {
       setBlocked(b.reason)
       setTimeout(() => setBlocked(null), 4000)
