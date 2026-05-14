@@ -1,5 +1,5 @@
 import './globals.css'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { Navbar } from '@/components/ui/Navbar'
 import { Sidebar } from '@/components/ui/Sidebar'
@@ -9,6 +9,16 @@ import { SidebarProvider } from '@/components/ui/SidebarContext'
 export const metadata: Metadata = {
   title: 'StreamHub — Live, Videos & Shorts',
   description: 'Videos, live streams, and shorts — all in one place.'
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: light)', color: '#f8fafc' }
+  ]
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {

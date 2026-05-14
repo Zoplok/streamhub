@@ -5,38 +5,73 @@
 
 :root {
   color-scheme: dark;
+  /* surfaces (0 = page bg, 5 = strongest) */
   --surface-0: 10 10 10;
   --surface-1: 18 18 18;
   --surface-2: 24 24 24;
   --surface-3: 32 32 32;
   --surface-4: 42 42 42;
   --surface-5: 56 56 56;
+  /* semantic text */
+  --fg: 245 245 245;
+  --fg-muted: 163 163 163;
+  --fg-subtle: 115 115 115;
+  --fg-inverse: 23 23 23;
+  /* overlay used for modal backdrops, image gradients, etc. */
+  --overlay: 0 0 0;
 }
 
 .light {
   color-scheme: light;
-  --surface-0: 250 250 250;
+  /* Slate-tinted, professional palette with proper depth.
+     surface-0 = page bg (slightly cool off-white)
+     surface-1 = cards / sidebar (pure white, clearly elevated)
+     surface-2 = subtle hover / secondary card
+     surface-3 = divider / chip
+     surface-4 = strong divider / input border
+     surface-5 = muted icon */
+  --surface-0: 248 250 252;
   --surface-1: 255 255 255;
-  --surface-2: 245 245 245;
-  --surface-3: 229 229 229;
-  --surface-4: 212 212 212;
-  --surface-5: 163 163 163;
+  --surface-2: 241 245 249;
+  --surface-3: 226 232 240;
+  --surface-4: 203 213 225;
+  --surface-5: 100 116 139;
+  /* semantic text */
+  --fg: 15 23 42;
+  --fg-muted: 71 85 105;
+  --fg-subtle: 100 116 139;
+  --fg-inverse: 255 255 255;
+  --overlay: 15 23 42;
 }
 
 html,
 body {
-  @apply bg-surface-0 text-neutral-100 antialiased font-sans transition-colors duration-200;
+  @apply bg-surface-0 antialiased font-sans transition-colors duration-200;
+  color: rgb(var(--fg));
   font-feature-settings: 'cv11', 'ss01', 'ss03';
+}
+
+body {
+  overflow-x: hidden;
 }
 
 ::selection {
   @apply bg-brand-500/30 text-brand-50;
+}
+.light ::selection {
+  background-color: rgb(83 252 24 / 0.25);
+  color: rgb(34 76 4);
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { @apply bg-surface-1; }
 ::-webkit-scrollbar-thumb { @apply bg-surface-4 rounded-full; }
 ::-webkit-scrollbar-thumb:hover { @apply bg-surface-5; }
+
+/* Touch-friendly tap targets on mobile */
+@media (max-width: 640px) {
+  button, a, [role="button"] { touch-action: manipulation; }
+}
 
 @layer components {
   .chip {
@@ -51,35 +86,86 @@ body {
 }
 
 @layer utilities {
-  .light body {
-    @apply text-neutral-950;
-  }
+  /* ---------- LIGHT MODE OVERRIDES ----------
+     The codebase was originally dark-mode-only and uses neutral-* / black overlays
+     extensively. Rather than refactor 200+ files, we remap the most common classes
+     here so light mode looks polished out of the box. */
 
+  /* Primary text (used for headings, body copy) */
   .light .text-neutral-50,
   .light .text-neutral-100,
   .light .text-neutral-200 {
-    color: rgb(23 23 23);
+    color: rgb(15 23 42);
   }
 
-  .light .text-neutral-300,
-  .light .text-neutral-400 {
-    color: rgb(64 64 64);
-  }
+  /* Secondary text */
+  .light .text-neutral-300 { color: rgb(30 41 59); }
+  .light .text-neutral-400 { color: rgb(51 65 85); }
+  .light .text-neutral-500 { color: rgb(71 85 105); }
+  .light .text-neutral-600 { color: rgb(100 116 139); }
+  .light .text-neutral-700 { color: rgb(148 163 184); }
 
-  .light .text-neutral-500 {
-    color: rgb(82 82 82);
-  }
+  /* Hover variants flip too */
+  .light .hover\:text-white:hover,
+  .light .hover\:text-neutral-100:hover,
+  .light .hover\:text-neutral-200:hover { color: rgb(15 23 42); }
+  .light .hover\:text-neutral-300:hover { color: rgb(30 41 59); }
+  .light .hover\:text-neutral-400:hover { color: rgb(51 65 85); }
 
+  /* Group-hover variants (used in cards) */
+  .light .group:hover .group-hover\:text-white { color: rgb(15 23 42); }
+
+  /* Placeholder text */
+  .light .placeholder\:text-neutral-400::placeholder,
+  .light .placeholder-neutral-400::placeholder,
   .light .placeholder\:text-neutral-500::placeholder,
-  .light .placeholder-neutral-500::placeholder {
-    color: rgb(115 115 115);
+  .light .placeholder-neutral-500::placeholder { color: rgb(100 116 139); }
+
+  /* surface-0 token used as text-on-brand needs to stay near-white for contrast */
+  .light .text-surface-0 { color: rgb(255 255 255); }
+  .light .ring-surface-0 { --tw-ring-color: rgb(var(--surface-0) / 1); }
+
+  /* Black overlays (modal backdrops, image gradients) — soften and tint slate */
+  .light .bg-black\/80 { background-color: rgb(15 23 42 / 0.55); }
+  .light .bg-black\/70 { background-color: rgb(15 23 42 / 0.45); }
+  .light .bg-black\/60 { background-color: rgb(15 23 42 / 0.38); }
+  .light .bg-black\/50 { background-color: rgb(15 23 42 / 0.3); }
+  .light .bg-black\/40 { background-color: rgb(15 23 42 / 0.22); }
+  .light .bg-black\/30 { background-color: rgb(15 23 42 / 0.16); }
+  .light .bg-black\/20 { background-color: rgb(15 23 42 / 0.1); }
+  .light .from-black\/80 { --tw-gradient-from: rgb(15 23 42 / 0.55) var(--tw-gradient-from-position); }
+  .light .from-black\/60 { --tw-gradient-from: rgb(15 23 42 / 0.38) var(--tw-gradient-from-position); }
+  .light .to-black\/80 { --tw-gradient-to: rgb(15 23 42 / 0.55) var(--tw-gradient-to-position); }
+  .light .to-black\/60 { --tw-gradient-to: rgb(15 23 42 / 0.38) var(--tw-gradient-to-position); }
+
+  /* chip-active in light mode: dark pill with white text (Kick-style but inverted) */
+  .light .chip-active {
+    background-color: rgb(15 23 42);
+    color: rgb(255 255 255);
+  }
+  .light .chip-active:hover { background-color: rgb(30 41 59); }
+
+  /* Cards get a soft shadow in light mode to add depth without lines */
+  .light .card-hover:hover {
+    background-color: rgb(241 245 249);
   }
 
-  .light .text-surface-0 {
-    color: rgb(10 10 10);
+  /* Sticky header / sidebar — give them a subtle bottom shadow in light mode */
+  .light header.sticky {
+    box-shadow: 0 1px 0 rgb(226 232 240), 0 1px 3px rgb(15 23 42 / 0.04);
   }
 
-  .light .ring-surface-0 {
-    --tw-ring-color: rgb(var(--surface-0) / 1);
-  }
+  /* Scrollbar in light mode */
+  .light::-webkit-scrollbar-track,
+  .light *::-webkit-scrollbar-track { background-color: rgb(241 245 249); }
+  .light::-webkit-scrollbar-thumb,
+  .light *::-webkit-scrollbar-thumb { background-color: rgb(203 213 225); }
+  .light::-webkit-scrollbar-thumb:hover,
+  .light *::-webkit-scrollbar-thumb:hover { background-color: rgb(148 163 184); }
+
+  /* Semantic FG utilities (preferred for new code) */
+  .text-fg { color: rgb(var(--fg)); }
+  .text-fg-muted { color: rgb(var(--fg-muted)); }
+  .text-fg-subtle { color: rgb(var(--fg-subtle)); }
+  .text-fg-inverse { color: rgb(var(--fg-inverse)); }
 }

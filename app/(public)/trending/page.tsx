@@ -1,9 +1,8 @@
-import { db } from '@/lib/db'
+import { cachedDbQuery } from '@/lib/cached-db'
 import { VideoGrid } from '@/components/video/VideoGrid'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Flame } from 'lucide-react'
 
-export const dynamic = 'force-dynamic'
 export const revalidate = 60
 
 interface VideoRow {
@@ -17,13 +16,16 @@ interface VideoRow {
 }
 
 export default async function TrendingPage() {
-  const vids = await db.query<VideoRow>(
+  const vids = await cachedDbQuery<VideoRow>(
+    'trending:videos',
     `SELECT v.id, v.title, v.thumbnail_url, v.duration, v.views, v.created_at,
             c.name AS channel_name
      FROM videos v JOIN channels c ON c.id = v.channel_id
      WHERE v.status='ready' AND v.created_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY)
      ORDER BY v.views DESC
-     LIMIT 48`
+     LIMIT 48`,
+    [],
+    60
   )
 
   return (

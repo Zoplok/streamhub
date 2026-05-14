@@ -49,7 +49,9 @@ CREATE INDEX IF NOT EXISTS idx_videos_channel ON videos(channel_id);
 CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_videos_status ON videos(status);
 CREATE INDEX IF NOT EXISTS idx_videos_status_created ON videos(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_videos_status_views ON videos(status, views DESC);
 CREATE INDEX IF NOT EXISTS idx_videos_status_category_created ON videos(status, category, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_videos_status_category_views ON videos(status, category, views DESC);
 CREATE INDEX IF NOT EXISTS idx_videos_channel_status_created ON videos(channel_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_videos_category ON videos(category);
 CREATE INDEX IF NOT EXISTS idx_videos_search ON videos USING GIN (to_tsvector('simple', title || ' ' || COALESCE(description, '')));
@@ -65,6 +67,8 @@ CREATE TABLE IF NOT EXISTS shorts (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_shorts_created_at ON shorts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_shorts_channel ON shorts(channel_id);
+CREATE INDEX IF NOT EXISTS idx_shorts_views_created ON shorts(views DESC, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS live_streams (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -80,8 +84,10 @@ CREATE TABLE IF NOT EXISTS live_streams (
   ended_at     TIMESTAMPTZ NULL
 );
 CREATE INDEX IF NOT EXISTS idx_streams_status ON live_streams(status);
+CREATE INDEX IF NOT EXISTS idx_streams_channel ON live_streams(channel_id);
 CREATE INDEX IF NOT EXISTS idx_streams_status_started ON live_streams(status, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_streams_status_viewers ON live_streams(status, viewer_count DESC);
+CREATE INDEX IF NOT EXISTS idx_streams_status_category_viewers ON live_streams(status, category, viewer_count DESC);
 CREATE INDEX IF NOT EXISTS idx_streams_category ON live_streams(category);
 
 CREATE TABLE IF NOT EXISTS subscriptions (
@@ -92,6 +98,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   UNIQUE(subscriber_id, channel_id)
 );
 CREATE INDEX IF NOT EXISTS idx_subs_channel ON subscriptions(channel_id);
+CREATE INDEX IF NOT EXISTS idx_subs_channel_subscriber ON subscriptions(channel_id, subscriber_id);
 
 CREATE TABLE IF NOT EXISTS comments (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -106,6 +113,7 @@ CREATE TABLE IF NOT EXISTS comments (
 CREATE INDEX IF NOT EXISTS idx_comments_video ON comments(video_id);
 CREATE INDEX IF NOT EXISTS idx_comments_short ON comments(short_id);
 CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id);
+CREATE INDEX IF NOT EXISTS idx_comments_video_created ON comments(video_id, created_at);
 
 CREATE TABLE IF NOT EXISTS reactions (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -117,6 +125,7 @@ CREATE TABLE IF NOT EXISTS reactions (
   UNIQUE(user_id, target_type, target_id)
 );
 CREATE INDEX IF NOT EXISTS idx_reactions_target ON reactions(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_reactions_target_type ON reactions(target_type, target_id, type);
 
 CREATE TABLE IF NOT EXISTS watch_history (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),

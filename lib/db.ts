@@ -67,7 +67,8 @@ function replaceQuestionPlaceholders(sql: string) {
 function toPostgresSql(sql: string) {
   let converted = sql
     .replace(/CAST\(\s*COALESCE\(SUM\(([^)]+)\),\s*0\)\s+AS\s+SIGNED\s*\)/gi, 'COALESCE(SUM($1), 0)::int')
-    .replace(/CAST\(\s*COUNT\(\*\)\s+AS\s+SIGNED\s*\)/gi, 'COUNT(*)::int')
+    .replace(/CAST\(\s*COUNT\(([^)]*)\)\s+AS\s+SIGNED\s*\)/gi, 'COUNT($1)::int')
+    .replace(/CAST\(\s*SUM\(([\s\S]+?)\)\s+AS\s+SIGNED\s*\)/gi, 'SUM($1)::int')
     .replace(/CAST\(\s*\?\s+AS\s+JSON\s*\)/gi, '?::jsonb')
     .replace(/DATE_SUB\(\s*NOW\(\)\s*,\s*INTERVAL\s+\?\s+HOUR\s*\)/gi, "(NOW() - (? * INTERVAL '1 hour'))")
     .replace(/DATE_SUB\(\s*(?:NOW\(\)|CURRENT_TIMESTAMP)\s*,\s*INTERVAL\s+(\d+)\s+(\w+)\s*\)/gi, "(NOW() - INTERVAL '$1 $2')")

@@ -63,8 +63,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   try {
     const channel = await db.query(
       `SELECT c.*, u.username AS owner_username, u.avatar_url AS owner_avatar,
-              (SELECT CAST(COUNT(*) AS SIGNED) FROM subscriptions s WHERE s.channel_id=c.id) AS subscribers
+              COALESCE(subs.subscribers, 0) AS subscribers
        FROM channels c JOIN users u ON u.id=c.user_id
+       LEFT JOIN (
+         SELECT channel_id, CAST(COUNT(*) AS SIGNED) AS subscribers
+         FROM subscriptions
+         GROUP BY channel_id
+       ) subs ON subs.channel_id = c.id
        WHERE c.id=?`,
       [params.id]
     )

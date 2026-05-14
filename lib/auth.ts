@@ -29,9 +29,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           username: string
           password_hash: string
           role_name: Role
+          avatar_url: string | null
         }>(
-          `SELECT u.id, u.email, u.username, u.password_hash, r.name AS role_name
+          `SELECT u.id, u.email, u.username, u.password_hash, r.name AS role_name,
+                  c.avatar_url
            FROM users u JOIN roles r ON r.id = u.role_id
+           LEFT JOIN channels c ON c.user_id = u.id
            WHERE u.email = ? LIMIT 1`,
           [email]
         )
@@ -39,7 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user) return null
         const ok = await bcrypt.compare(password, user.password_hash)
         if (!ok) return null
-        return { id: user.id, email: user.email, name: user.username, role: user.role_name }
+        return { id: user.id, email: user.email, name: user.username, role: user.role_name, image: user.avatar_url ?? null }
       }
     })
   ]

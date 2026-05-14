@@ -90,9 +90,12 @@ export async function POST(req: NextRequest) {
       db.query(sql, args),
       db.query(
         `SELECT c.id, c.name, c.avatar_url, c.description,
-                (SELECT CAST(COUNT(*) AS SIGNED) FROM subscriptions s WHERE s.channel_id=c.id) AS subscribers
+                CAST(COUNT(s.id) AS SIGNED) AS subscribers
          FROM channels c
+         LEFT JOIN subscriptions s ON s.channel_id = c.id
          WHERE c.name LIKE ? OR c.description LIKE ?
+         GROUP BY c.id, c.name, c.avatar_url, c.description
+         ORDER BY subscribers DESC
          LIMIT 8`,
         [`%${q}%`, `%${q}%`]
       )

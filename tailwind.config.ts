@@ -30,6 +30,12 @@ const config: Config = {
           3: 'rgb(var(--surface-3) / <alpha-value>)',
           4: 'rgb(var(--surface-4) / <alpha-value>)',
           5: 'rgb(var(--surface-5) / <alpha-value>)'
+        },
+        fg: {
+          DEFAULT: 'rgb(var(--fg) / <alpha-value>)',
+          muted: 'rgb(var(--fg-muted) / <alpha-value>)',
+          subtle: 'rgb(var(--fg-subtle) / <alpha-value>)',
+          inverse: 'rgb(var(--fg-inverse) / <alpha-value>)'
         }
       },
       fontFamily: {

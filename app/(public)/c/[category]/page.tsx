@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { db } from '@/lib/db'
+import { cachedDbQuery } from '@/lib/cached-db'
 import { VideoGrid } from '@/components/video/VideoGrid'
 import { LiveCard } from '@/components/live/LiveCard'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -24,28 +24,32 @@ export default async function CategoryPage({ params }: { params: { category: str
   if (!meta) notFound()
 
   const [vids, live] = await Promise.all([
-    db.query<{
+    cachedDbQuery<{
       id: string; title: string; thumbnail_url: string | null; duration: number;
       views: number; channel_name: string; created_at: string
     }>(
+      `category:${key}:videos`,
       `SELECT v.id, v.title, v.thumbnail_url, v.duration, v.views, v.created_at,
               c.name AS channel_name
        FROM videos v JOIN channels c ON c.id = v.channel_id
        WHERE v.status='ready' AND (v.category = ? OR JSON_CONTAINS(v.tags, JSON_QUOTE(?)))
        ORDER BY v.views DESC
        LIMIT 48`,
-      [meta.label, key]
+      [meta.label, key],
+      60
     ),
-    db.query<{
+    cachedDbQuery<{
       id: string; title: string; channel_name: string; viewer_count: number;
       thumbnail_url: string | null; category: string | null
     }>(
+      `category:${key}:live`,
       `SELECT ls.id, ls.title, ls.viewer_count, ls.thumbnail_url, ls.category, c.name AS channel_name
        FROM live_streams ls JOIN channels c ON c.id = ls.channel_id
        WHERE ls.status='live' AND (ls.category = ? OR c.category = ?)
        ORDER BY ls.viewer_count DESC
        LIMIT 6`,
-      [meta.label, meta.label]
+      [meta.label, meta.label],
+      15
     )
   ])
 

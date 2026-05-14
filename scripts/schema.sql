@@ -46,7 +46,9 @@ CREATE INDEX idx_videos_channel ON videos(channel_id);
 CREATE INDEX idx_videos_created_at ON videos(created_at DESC);
 CREATE INDEX idx_videos_status ON videos(status);
 CREATE INDEX idx_videos_status_created ON videos(status, created_at DESC);
+CREATE INDEX idx_videos_status_views ON videos(status, views DESC);
 CREATE INDEX idx_videos_status_category_created ON videos(status, category, created_at DESC);
+CREATE INDEX idx_videos_status_category_views ON videos(status, category, views DESC);
 CREATE INDEX idx_videos_channel_status_created ON videos(channel_id, status, created_at DESC);
 CREATE FULLTEXT INDEX idx_videos_title_ft ON videos(title, description);
 
@@ -62,6 +64,8 @@ CREATE TABLE IF NOT EXISTS shorts (
   FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_shorts_created_at ON shorts(created_at DESC);
+CREATE INDEX idx_shorts_channel ON shorts(channel_id);
+CREATE INDEX idx_shorts_views_created ON shorts(views DESC, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS live_streams (
   id           CHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -76,8 +80,10 @@ CREATE TABLE IF NOT EXISTS live_streams (
   FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_streams_status ON live_streams(status);
+CREATE INDEX idx_streams_channel ON live_streams(channel_id);
 CREATE INDEX idx_streams_status_started ON live_streams(status, started_at DESC);
 CREATE INDEX idx_streams_status_viewers ON live_streams(status, viewer_count DESC);
+CREATE INDEX idx_streams_status_category_viewers ON live_streams(status, category, viewer_count DESC);
 
 CREATE TABLE IF NOT EXISTS subscriptions (
   id            CHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -89,6 +95,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_subs_channel ON subscriptions(channel_id);
+CREATE INDEX idx_subs_channel_subscriber ON subscriptions(channel_id, subscriber_id);
 
 CREATE TABLE IF NOT EXISTS comments (
   id         CHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -107,6 +114,7 @@ CREATE TABLE IF NOT EXISTS comments (
 CREATE INDEX idx_comments_video ON comments(video_id);
 CREATE INDEX idx_comments_short ON comments(short_id);
 CREATE INDEX idx_comments_parent ON comments(parent_id);
+CREATE INDEX idx_comments_video_created ON comments(video_id, created_at);
 
 CREATE TABLE IF NOT EXISTS reactions (
   id          CHAR(36) PRIMARY KEY DEFAULT (UUID()),
@@ -119,6 +127,7 @@ CREATE TABLE IF NOT EXISTS reactions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_reactions_target ON reactions(target_type, target_id);
+CREATE INDEX idx_reactions_target_type ON reactions(target_type, target_id, type);
 
 CREATE TABLE IF NOT EXISTS watch_history (
   id               CHAR(36) PRIMARY KEY DEFAULT (UUID()),

@@ -1,11 +1,10 @@
 import Link from 'next/link'
-import { db } from '@/lib/db'
+import { cachedDbQuery } from '@/lib/cached-db'
 import { VideoGrid } from '@/components/video/VideoGrid'
 import { LiveCard } from '@/components/live/LiveCard'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Compass, Radio } from 'lucide-react'
 
-export const dynamic = 'force-dynamic'
 export const revalidate = 60
 
 interface VideoRow {
@@ -37,26 +36,41 @@ interface ChannelRow {
 
 export default async function ExplorePage() {
   const [live, fresh, channels] = await Promise.all([
-    db.query<LiveRow>(
+    cachedDbQuery<LiveRow>(
+      'explore:live',
       `SELECT ls.id, ls.title, ls.viewer_count, ls.thumbnail_url, ls.category, c.name AS channel_name
        FROM live_streams ls JOIN channels c ON c.id = ls.channel_id
        WHERE ls.status='live'
-       ORDER BY ls.viewer_count DESC LIMIT 6`
+       ORDER BY ls.viewer_count DESC LIMIT 6`,
+      [],
+      15
     ),
-    db.query<VideoRow>(
+    cachedDbQuery<VideoRow>(
+      'explore:fresh',
       `SELECT v.id, v.title, v.thumbnail_url, v.duration, v.views, v.created_at,
               c.name AS channel_name
        FROM videos v JOIN channels c ON c.id = v.channel_id
        WHERE v.status='ready'
-       ORDER BY RAND()
-       LIMIT 24`
+       ORDER BY v.created_at DESC
+       LIMIT 24`,
+      [],
+      60
     ),
-    db.query<ChannelRow>(
-      `SELECT c.id, c.name, c.avatar_url, c.category,
-              (SELECT CAST(COUNT(*) AS SIGNED) FROM subscriptions s WHERE s.channel_id=c.id) AS subscribers
-       FROM channels c
-       ORDER BY subscribers DESC
-       LIMIT 8`
+    cachedDbQuery<ChannelRow>(
+      'explore:channels',
+      `SELECT c.id, c.name, c.avatar_url, c.category, ranked.subscribers
+       FROM (
+         SELECT channel_id, CAST(COUNT(*) AS SIGNED) AS subscribers
+         FROM subscriptions
+         GROUP BY channel_id
+         ORDER BY subscribers DESC
+         LIMIT 8
+       ) ranked
+       JOIN channels c ON c.id = ranked.channel_id
+       ORDER BY ranked.subscribers DESC
+       LIMIT 8`,
+      [],
+      60
     )
   ])
 

@@ -12,6 +12,7 @@ export const authConfig: NextAuthConfig = {
       if (user) {
         token.sub = (user as { id: string }).id
         token.role = (user as { role: Role }).role
+        token.picture = user.image ?? null
       }
       return token
     },
@@ -19,6 +20,7 @@ export const authConfig: NextAuthConfig = {
       if (session.user) {
         session.user.id = token.sub!
         session.user.role = token.role as Role
+        session.user.image = typeof token.picture === 'string' ? token.picture : null
       }
       return session
     },

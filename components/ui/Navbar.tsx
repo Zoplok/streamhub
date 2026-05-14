@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { auth, signOut } from '@/lib/auth'
-import { db } from '@/lib/db'
 import { Button } from './Button'
 import { SearchBar } from './SearchBar'
 import { Video, Radio, User } from 'lucide-react'
@@ -12,43 +11,29 @@ export async function Navbar() {
   const session = await auth()
   const isCreator = session?.user && ['admin', 'creator'].includes(session.user.role)
   const initial = session?.user?.name?.[0]?.toUpperCase() ?? 'U'
-
-  let avatarUrl: string | null = null
-  if (session?.user) {
-    try {
-      const r = await db.query<{ avatar_url: string | null }>(
-        'SELECT avatar_url FROM channels WHERE user_id=? LIMIT 1',
-        [session.user.id]
-      )
-      avatarUrl = r.rows[0]?.avatar_url ?? null
-    } catch { /* avatar not critical – fall through to initial letter */ }
-  }
+  const avatarUrl = session?.user?.image ?? null
 
   return (
     <header className="sticky top-0 z-40 border-b border-surface-3 bg-surface-0/90 backdrop-blur">
-      <div className="flex h-14 items-center gap-4 px-4 md:px-6">
-        {/* Hamburger – mobile only */}
+      <div className="flex h-14 items-center gap-2 px-3 sm:gap-3 sm:px-4 md:gap-4 md:px-6">
         <MobileMenuButton />
 
-        {/* Brand */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500 text-surface-0 shadow-glow">
             <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden="true">
               <path d="M8 5v14l11-7z" />
             </svg>
           </span>
-          <span className="hidden text-lg font-extrabold tracking-tight text-white sm:inline">
+          <span className="hidden text-lg font-extrabold tracking-tight text-fg sm:inline">
             Stream<span className="text-brand-500">Hub</span>
           </span>
         </Link>
 
-        {/* Search */}
-        <div className="ml-2 flex flex-1 justify-center">
+        <div className="flex min-w-0 flex-1 justify-center sm:ml-2">
           <SearchBar />
         </div>
 
-        {/* Actions */}
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
           <ThemeToggle />
           {isCreator && (
             <>
@@ -61,7 +46,7 @@ export async function Navbar() {
               </Link>
               <Link
                 href="/upload"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 transition-colors hover:bg-surface-2 hover:text-white"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 transition-colors hover:bg-surface-2 hover:text-neutral-100"
                 aria-label="Upload"
               >
                 <Video className="h-5 w-5" />
@@ -90,7 +75,7 @@ export async function Navbar() {
                   : initial
                 }
               </Link>
-              <form action={async () => { 'use server'; await signOut({ redirectTo: '/' }) }}>
+              <form action={async () => { 'use server'; await signOut({ redirectTo: '/' }) }} className="hidden sm:block">
                 <Button size="sm" variant="ghost" type="submit">Sign out</Button>
               </form>
             </>

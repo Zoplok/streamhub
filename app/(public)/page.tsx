@@ -1,11 +1,10 @@
-import { db } from '@/lib/db'
+import { cachedDbQuery } from '@/lib/cached-db'
 import { VideoGrid } from '@/components/video/VideoGrid'
 import { LiveCard } from '@/components/live/LiveCard'
 import { Radio, TrendingUp, Film } from 'lucide-react'
 import Link from 'next/link'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+export const revalidate = 30
 
 interface VideoRow {
   id: string
@@ -51,25 +50,34 @@ const CHIPS: { label: string; href: string }[] = [
 
 export default async function HomePage() {
   const [videos, live, shorts] = await Promise.all([
-    db.query<VideoRow>(
+    cachedDbQuery<VideoRow>(
+      'home:videos',
       `SELECT v.id, v.title, v.thumbnail_url, v.duration, v.views, v.created_at, c.name AS channel_name
        FROM videos v JOIN channels c ON c.id = v.channel_id
        WHERE v.status='ready'
        ORDER BY v.created_at DESC
-       LIMIT 24`
+       LIMIT 24`,
+      [],
+      30
     ),
-    db.query<LiveRow>(
+    cachedDbQuery<LiveRow>(
+      'home:live',
       `SELECT ls.id, ls.title, ls.viewer_count, ls.hls_url, c.name AS channel_name
        FROM live_streams ls JOIN channels c ON c.id = ls.channel_id
        WHERE ls.status='live'
        ORDER BY ls.viewer_count DESC
-       LIMIT 6`
+       LIMIT 6`,
+      [],
+      15
     ),
-    db.query<ShortRow>(
+    cachedDbQuery<ShortRow>(
+      'home:shorts',
       `SELECT s.id, s.title, s.thumbnail_url, s.views, c.name AS channel_name
        FROM shorts s JOIN channels c ON c.id = s.channel_id
        ORDER BY s.created_at DESC
-       LIMIT 8`
+       LIMIT 8`,
+      [],
+      30
     )
   ])
 

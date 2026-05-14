@@ -15,11 +15,19 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     try {
       const result = await db.query(
         `SELECT v.*, c.name AS channel_name, c.user_id AS channel_owner_id,
-                (SELECT CAST(COUNT(*) AS SIGNED) FROM reactions r WHERE r.target_type='video' AND r.target_id=v.id AND r.type='like') AS likes,
-                (SELECT CAST(COUNT(*) AS SIGNED) FROM reactions r WHERE r.target_type='video' AND r.target_id=v.id AND r.type='dislike') AS dislikes
+                COALESCE(reactions.likes, 0) AS likes,
+                COALESCE(reactions.dislikes, 0) AS dislikes
          FROM videos v JOIN channels c ON c.id = v.channel_id
+         LEFT JOIN (
+           SELECT target_id,
+                  CAST(SUM(CASE WHEN type='like' THEN 1 ELSE 0 END) AS SIGNED) AS likes,
+                  CAST(SUM(CASE WHEN type='dislike' THEN 1 ELSE 0 END) AS SIGNED) AS dislikes
+           FROM reactions
+           WHERE target_type='video' AND target_id=?
+           GROUP BY target_id
+         ) reactions ON reactions.target_id = v.id
          WHERE v.id=?`,
-        [params.id]
+        [params.id, params.id]
       )
       if (!result.rows[0]) return NextResponse.json({ error: 'Not found' }, { status: 404 })
       await db.query('UPDATE videos SET views = views + 1 WHERE id=?', [params.id])

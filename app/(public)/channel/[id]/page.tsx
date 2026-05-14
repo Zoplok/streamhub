@@ -31,9 +31,20 @@ export default async function ChannelPage({ params }: { params: { id: string } }
   const session = await auth()
   const chRes = await db.query<ChannelRow>(
     `SELECT c.id, c.user_id, c.name, c.description, c.banner_url, c.avatar_url, c.category, u.username AS owner_username,
-            (SELECT CAST(COUNT(*) AS SIGNED) FROM subscriptions s WHERE s.channel_id=c.id) AS subscribers,
-            (SELECT CAST(COUNT(*) AS SIGNED) FROM videos v WHERE v.channel_id=c.id AND v.status='ready') AS videos_count
+            COALESCE(subs.subscribers, 0) AS subscribers,
+            COALESCE(vids.videos_count, 0) AS videos_count
      FROM channels c JOIN users u ON u.id=c.user_id
+     LEFT JOIN (
+       SELECT channel_id, CAST(COUNT(*) AS SIGNED) AS subscribers
+       FROM subscriptions
+       GROUP BY channel_id
+     ) subs ON subs.channel_id = c.id
+     LEFT JOIN (
+       SELECT channel_id, CAST(COUNT(*) AS SIGNED) AS videos_count
+       FROM videos
+       WHERE status='ready'
+       GROUP BY channel_id
+     ) vids ON vids.channel_id = c.id
      WHERE c.id=?`,
     [params.id]
   )
