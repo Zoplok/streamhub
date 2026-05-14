@@ -10,6 +10,6 @@ export function cachedDbQuery<T>(
   return unstable_cache(
     () => db.query<T>(text, params),
     ['db-query', key],
-    { revalidate }
+    { revalidate, tags: ['db-query', key] }
   )()
 }

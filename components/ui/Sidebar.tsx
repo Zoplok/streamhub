@@ -123,7 +123,7 @@ export function Sidebar() {
       {/* Mobile drawer */}
       <aside
         className={[
-          'fixed left-0 top-14 z-40 h-[calc(100vh-3.5rem)] w-64 overflow-y-auto',
+          'fixed left-0 top-[6.5rem] z-40 h-[calc(100vh-6.5rem)] w-64 max-w-[85vw] overflow-y-auto sm:top-14 sm:h-[calc(100vh-3.5rem)]',
           'border-r border-surface-3 bg-surface-1 px-3 py-3',
           'transition-transform duration-200 ease-in-out lg:hidden',
           open ? 'translate-x-0' : '-translate-x-full'

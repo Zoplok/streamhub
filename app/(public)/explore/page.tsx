@@ -75,7 +75,7 @@ export default async function ExplorePage() {
   ])
 
   return (
-    <div className="px-4 py-6 md:px-6 lg:px-8">
+    <div className="px-3 py-4 sm:px-4 sm:py-6 md:px-6 lg:px-8">
       <PageHeader
         icon={Compass}
         eyebrow="Discover"
@@ -90,7 +90,7 @@ export default async function ExplorePage() {
             <Radio className="h-4 w-4 text-red-400" />
             <h2 className="text-sm font-extrabold uppercase tracking-wider text-neutral-300">Live now</h2>
           </div>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5">
             {live.rows.map((l) => (
               <LiveCard
                 key={l.id}
@@ -109,7 +109,7 @@ export default async function ExplorePage() {
       {channels.rows.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-4 text-sm font-extrabold uppercase tracking-wider text-neutral-300">Top channels</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(8.5rem,100%),1fr))] gap-3 sm:gap-4">
             {channels.rows.map((c) => {
               const initial = c.name[0]?.toUpperCase() ?? '?'
               return (

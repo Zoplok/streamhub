@@ -22,7 +22,7 @@ export function VideoGrid({ videos }: { videos: Video[] }) {
     )
   }
   return (
-    <div className="grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-x-4 gap-y-7">
       {videos.map((v) => (
         <VideoCard key={v.id} {...v} />
       ))}

@@ -76,10 +76,22 @@ export function cacheKey(prefix: string, parts: Record<string, unknown>) {
   return `${prefix}:${stable}`
 }
 
+import { revalidateTag, revalidatePath } from 'next/cache'
+
 export async function invalidateStreamCaches() {
   await deleteByPattern('streams:list:*')
+  try {
+    revalidateTag('db-query')
+    revalidatePath('/')
+    revalidatePath('/live')
+    revalidatePath('/live/[id]', 'page')
+  } catch {}
 }
 
 export async function invalidateVideoCaches() {
   await deleteByPattern('videos:list:*')
+  try {
+    revalidateTag('db-query')
+    revalidatePath('/')
+  } catch {}
 }

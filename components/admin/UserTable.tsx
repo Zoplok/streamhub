@@ -12,7 +12,7 @@ interface User {
   created_at: string
 }
 
-export function UserTable() {
+export function UserTable({ mode = 'admin' }: { mode?: 'admin' | 'creator' }) {
   const [rows, setRows] = useState<User[]>([])
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
@@ -46,13 +46,54 @@ export function UserTable() {
           e.preventDefault()
           void load()
         }}
-        className="mb-3 flex gap-2"
+        className="mb-3 flex flex-col gap-2 sm:flex-row"
       >
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search users…" />
         <Button type="submit">Search</Button>
       </form>
-      <div className="overflow-x-auto rounded-lg border border-neutral-800">
-        <table className="w-full text-sm">
+      <div className="space-y-3 md:hidden">
+        {loading && (
+          <div className="rounded-lg border border-neutral-800 bg-surface-1 px-3 py-4 text-center text-sm text-neutral-500">
+            Loading...
+          </div>
+        )}
+        {!loading && rows.length === 0 && (
+          <div className="rounded-lg border border-neutral-800 bg-surface-1 px-3 py-4 text-center text-sm text-neutral-500">
+            No users
+          </div>
+        )}
+        {rows.map((u) => (
+          <div key={u.id} className="rounded-lg border border-neutral-800 bg-surface-1 p-4">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-neutral-100">{u.username}</p>
+              <p className="truncate text-xs text-neutral-400">{u.email}</p>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-neutral-400">
+              <span className="rounded-md bg-surface-2 px-2 py-1 font-semibold uppercase tracking-wider text-brand-400">
+                {u.role}
+              </span>
+              <span>{new Date(u.created_at).toLocaleDateString()}</span>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" onClick={() => act(u.id, 'promote', 'moderator')}>
+                Make Mod
+              </Button>
+              {mode === 'admin' && (
+                <>
+                  <Button size="sm" variant="secondary" onClick={() => act(u.id, 'promote', 'creator')}>
+                    Creator
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => act(u.id, 'ban')}>
+                    Ban
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto rounded-lg border border-neutral-800 md:block">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-neutral-900 text-left">
             <tr>
               <th className="px-3 py-2">Username</th>
@@ -77,12 +118,16 @@ export function UserTable() {
                     <Button size="sm" variant="secondary" onClick={() => act(u.id, 'promote', 'moderator')}>
                       Make Mod
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => act(u.id, 'promote', 'creator')}>
-                      Make Creator
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => act(u.id, 'ban')}>
-                      Ban
-                    </Button>
+                    {mode === 'admin' && (
+                      <>
+                        <Button size="sm" variant="secondary" onClick={() => act(u.id, 'promote', 'creator')}>
+                          Make Creator
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => act(u.id, 'ban')}>
+                          Ban
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>

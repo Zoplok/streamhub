@@ -48,9 +48,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ThemeProvider>
           <SidebarProvider>
             <Navbar />
-            <div className="flex">
+            <div className="flex min-w-0">
               <Sidebar />
-              <main className="min-h-[calc(100vh-3.5rem)] flex-1 transition-colors duration-200">{children}</main>
+              <main className="min-h-[calc(100vh-6.5rem)] min-w-0 flex-1 transition-colors duration-200 sm:min-h-[calc(100vh-3.5rem)]">
+                {children}
+              </main>
             </div>
           </SidebarProvider>
         </ThemeProvider>

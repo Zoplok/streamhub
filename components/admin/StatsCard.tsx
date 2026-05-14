@@ -17,11 +17,11 @@ const accents = {
 
 export function StatsCard({ label, value, icon: Icon, accent = 'brand', delta }: Props) {
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-surface-3 bg-surface-1 p-5 transition-colors hover:border-surface-4">
+    <div className="group relative min-w-0 overflow-hidden rounded-xl border border-surface-3 bg-surface-1 p-4 transition-colors hover:border-surface-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{label}</div>
-          <div className="mt-2 text-3xl font-extrabold tracking-tight text-white tabular-nums">
+          <div className="mt-2 break-words text-2xl font-extrabold tracking-tight text-white tabular-nums sm:text-3xl">
             {typeof value === 'number' ? value.toLocaleString() : value}
           </div>
           {delta && (

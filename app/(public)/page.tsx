@@ -86,7 +86,7 @@ export default async function HomePage() {
   const totalViewers = live.rows.reduce((sum, s) => sum + Number(s.viewer_count || 0), 0)
 
   return (
-    <div className="px-4 py-5 md:px-6 lg:px-8">
+    <div className="px-3 py-4 sm:px-4 sm:py-5 md:px-6 lg:px-8">
       {/* Category chips (YouTube-style scroller) */}
       <div className="mb-5 -mx-4 overflow-x-auto px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
         <div className="flex gap-2 pb-1">
@@ -117,7 +117,7 @@ export default async function HomePage() {
               See all →
             </Link>
           </div>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5">
             {live.rows.map((l) => (
               <LiveCard
                 key={l.id}
@@ -156,7 +156,7 @@ export default async function HomePage() {
                 <Link
                   key={s.id}
                   href={`/shorts#${s.id}`}
-                  className="group relative aspect-[9/16] w-[160px] shrink-0 overflow-hidden rounded-xl bg-surface-2 ring-1 ring-surface-3 transition-transform hover:-translate-y-0.5"
+                  className="group relative aspect-[9/16] w-[136px] shrink-0 overflow-hidden rounded-xl bg-surface-2 ring-1 ring-surface-3 transition-transform hover:-translate-y-0.5 sm:w-[160px]"
                 >
                   {s.thumbnail_url ? (
                     // eslint-disable-next-line @next/next/no-img-element

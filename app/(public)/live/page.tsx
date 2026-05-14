@@ -21,7 +21,7 @@ export default async function LiveIndexPage() {
      ORDER BY ls.viewer_count DESC`
   )
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6">
+    <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6">
       <div className="mb-4 flex items-center gap-2">
         <Badge tone="live">LIVE</Badge>
         <h1 className="text-2xl font-bold">Live now</h1>
@@ -29,7 +29,7 @@ export default async function LiveIndexPage() {
       {result.rows.length === 0 ? (
         <p className="text-neutral-500">No one is streaming right now.</p>
       ) : (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
           {result.rows.map((s) => (
             <li key={s.id}>
               <Link

@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { VideoGrid } from '@/components/video/VideoGrid'
 import { StatsCard } from '@/components/admin/StatsCard'
 import { Button } from '@/components/ui/Button'
-import { Video, Eye, Users, Radio, Upload, Sparkles, TrendingUp, Film } from 'lucide-react'
+import { Video, Eye, Users, Radio, Upload, Sparkles, TrendingUp, Film, ShieldCheck } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 export default async function DashboardPage() {
@@ -70,16 +70,16 @@ export default async function DashboardPage() {
   const initial = session.user.name?.[0]?.toUpperCase() ?? 'U'
 
   return (
-    <div className="px-4 py-6 md:px-6 lg:px-8">
+    <div className="px-3 py-4 sm:px-4 sm:py-6 md:px-6 lg:px-8">
       {/* Header */}
-      <div className="mb-8 flex flex-col gap-4 rounded-2xl border border-surface-3 bg-gradient-to-br from-surface-1 via-surface-1 to-brand-500/5 p-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4">
+      <div className="mb-8 flex flex-col gap-4 rounded-2xl border border-surface-3 bg-gradient-to-br from-surface-1 via-surface-1 to-brand-500/5 p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-xl font-extrabold text-surface-0 shadow-glow">
             {initial}
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wider text-brand-400">Creator Studio</p>
-            <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight md:text-3xl">
+            <h1 className="mt-0.5 break-words text-xl font-extrabold tracking-tight sm:text-2xl md:text-3xl">
               Welcome back, {session.user.name}
             </h1>
             {channel ? (
@@ -92,7 +92,7 @@ export default async function DashboardPage() {
           </div>
         </div>
         {channel && (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <Link href="/upload">
               <Button variant="primary" size="md" className="gap-2">
                 <Upload className="h-4 w-4" />
@@ -109,6 +109,12 @@ export default async function DashboardPage() {
               <Button variant="danger" size="md" className="gap-2">
                 <Radio className="h-4 w-4" />
                 Go live
+              </Button>
+            </Link>
+            <Link href="/dashboard/moderators">
+              <Button variant="secondary" size="md" className="gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                Moderators
               </Button>
             </Link>
             <Link href="/dashboard/channel">
@@ -132,7 +138,7 @@ export default async function DashboardPage() {
       ) : (
         <>
           {/* Stats */}
-          <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-3 sm:gap-4">
             <StatsCard label="Videos" value={totals.videos} icon={Video} accent="brand" />
             <StatsCard
               label="Total views"
@@ -153,7 +159,7 @@ export default async function DashboardPage() {
 
           {/* Live + Top video */}
           <div className="mb-10 grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="rounded-xl border border-surface-3 bg-surface-1 p-5 lg:col-span-2">
+            <div className="min-w-0 rounded-xl border border-surface-3 bg-surface-1 p-4 sm:p-5 lg:col-span-2">
               <div className="mb-3 flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-600/15 ring-1 ring-red-600/30">
                   <Radio className="h-4 w-4 text-red-400" />
@@ -165,7 +171,7 @@ export default async function DashboardPage() {
               ) : (
                 <ul className="divide-y divide-surface-3">
                   {liveNow.map((l) => (
-                    <li key={l.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                    <li key={l.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <span className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white animate-live-pulse">
                           <span className="h-1.5 w-1.5 rounded-full bg-white" />
@@ -173,7 +179,7 @@ export default async function DashboardPage() {
                         </span>
                         <span className="truncate text-sm font-medium text-neutral-100">{l.title}</span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-between gap-3 sm:justify-start">
                         <span className="text-xs text-neutral-400 tabular-nums">
                           {Number(l.viewer_count).toLocaleString()} viewers
                         </span>
@@ -187,7 +193,7 @@ export default async function DashboardPage() {
               )}
             </div>
 
-            <div className="rounded-xl border border-surface-3 bg-surface-1 p-5">
+            <div className="min-w-0 rounded-xl border border-surface-3 bg-surface-1 p-4 sm:p-5">
               <div className="mb-3 flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500/15 ring-1 ring-brand-500/30">
                   <TrendingUp className="h-4 w-4 text-brand-400" />

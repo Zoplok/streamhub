@@ -19,22 +19,22 @@ const accents = {
 
 export function PageHeader({ icon: Icon, eyebrow, title, subtitle, accent = 'brand', actions }: Props) {
   return (
-    <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <div className="flex items-center gap-3">
+    <div className="mb-6 flex min-w-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
         {Icon && (
           <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${accents[accent]}`}>
             <Icon className="h-6 w-6" />
           </div>
         )}
-        <div>
+        <div className="min-w-0">
           {eyebrow && (
             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{eyebrow}</p>
           )}
-          <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">{title}</h1>
+          <h1 className="break-words text-2xl font-extrabold tracking-tight md:text-3xl">{title}</h1>
           {subtitle && <p className="mt-0.5 text-sm text-neutral-400">{subtitle}</p>}
         </div>
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:shrink-0">{actions}</div>}
     </div>
   )
 }

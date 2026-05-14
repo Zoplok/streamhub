@@ -54,7 +54,7 @@ export default async function CategoryPage({ params }: { params: { category: str
   ])
 
   return (
-    <div className="px-4 py-6 md:px-6 lg:px-8">
+    <div className="px-3 py-4 sm:px-4 sm:py-6 md:px-6 lg:px-8">
       <PageHeader
         icon={meta.icon}
         eyebrow="Category"
@@ -66,7 +66,7 @@ export default async function CategoryPage({ params }: { params: { category: str
       {live.rows.length > 0 && (
         <section className="mb-10">
           <h2 className="mb-4 text-sm font-extrabold uppercase tracking-wider text-neutral-300">Live in {meta.label}</h2>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-5">
             {live.rows.map((l) => (
               <LiveCard
                 key={l.id}

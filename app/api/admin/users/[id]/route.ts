@@ -13,7 +13,6 @@ const patchSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   if (!idSchema.safeParse(params.id).success) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
   }
@@ -25,6 +24,54 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { action, role } = parsed.data
 
   try {
+    if (session.user.role === 'creator') {
+      if (action !== 'promote' || role !== 'moderator') {
+        return NextResponse.json({ error: 'Creators can only promote viewers to moderator' }, { status: 403 })
+      }
+      const eligible = await db.query<{ id: string }>(
+        `SELECT u.id
+         FROM users u
+         JOIN roles r ON r.id = u.role_id
+         WHERE u.id = ?
+           AND r.name IN ('viewer', 'creator')
+           AND EXISTS (SELECT 1 FROM channels own WHERE own.user_id = ?)
+           AND (
+             EXISTS (
+               SELECT 1
+               FROM subscriptions s
+               JOIN channels own ON own.id = s.channel_id
+               WHERE own.user_id = ? AND s.subscriber_id = u.id
+             )
+             OR EXISTS (
+               SELECT 1
+               FROM chat_messages cm
+               JOIN live_streams ls ON ls.id = cm.stream_id
+               JOIN channels own ON own.id = ls.channel_id
+               WHERE own.user_id = ? AND cm.user_id = u.id
+             )
+             OR EXISTS (
+               SELECT 1
+               FROM comments co
+               JOIN videos v ON v.id = co.video_id
+               JOIN channels own ON own.id = v.channel_id
+               WHERE own.user_id = ? AND co.user_id = u.id
+             )
+           )
+         LIMIT 1`,
+        [params.id, session.user.id, session.user.id, session.user.id, session.user.id]
+      )
+      if (!eligible.rows[0]) {
+        return NextResponse.json({ error: 'Viewer is not eligible for creator moderation' }, { status: 403 })
+      }
+      await db.query(
+        "UPDATE users SET role_id = (SELECT id FROM roles WHERE name='moderator') WHERE id=?",
+        [params.id]
+      )
+      return NextResponse.json({ data: { id: params.id, action, role: 'moderator' } })
+    }
+
+    if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
     if (action === 'ban') {
       await db.query(
         "UPDATE users SET role_id = (SELECT id FROM roles WHERE name='viewer'), password_hash='BANNED' WHERE id=?",
