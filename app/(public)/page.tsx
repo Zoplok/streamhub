@@ -22,6 +22,8 @@ interface LiveRow {
   channel_name: string
   viewer_count: number
   hls_url: string | null
+  thumbnail_url: string | null
+  category: string | null
 }
 
 interface ShortRow {
@@ -61,8 +63,8 @@ export default async function HomePage() {
       30
     ),
     cachedDbQuery<LiveRow>(
-      'home:live',
-      `SELECT ls.id, ls.title, ls.viewer_count, ls.hls_url, c.name AS channel_name
+      'home:live:v2',
+      `SELECT ls.id, ls.title, ls.viewer_count, ls.hls_url, ls.thumbnail_url, ls.category, c.name AS channel_name
        FROM live_streams ls JOIN channels c ON c.id = ls.channel_id
        WHERE ls.status='live'
        ORDER BY ls.viewer_count DESC
@@ -123,6 +125,8 @@ export default async function HomePage() {
                 title={l.title}
                 channel_name={l.channel_name}
                 viewer_count={Number(l.viewer_count || 0)}
+                thumbnail_url={l.thumbnail_url}
+                category={l.category}
               />
             ))}
           </div>

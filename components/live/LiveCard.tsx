@@ -32,9 +32,17 @@ export function LiveCard(p: Props) {
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-surface-2 via-surface-3 to-surface-1">
-            <Radio className="h-8 w-8 text-red-400" />
-            <span className="text-sm font-black uppercase tracking-widest text-surface-5">Live thumbnail</span>
+          <div className="relative flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-red-600/30 via-red-900/20 to-surface-3">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(239,68,68,0.25),transparent_60%)]" />
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-red-600/90 text-white shadow-lg shadow-red-600/40 ring-4 ring-red-600/20">
+              <Radio className="h-7 w-7 animate-pulse" />
+            </div>
+            <span className="relative text-2xl font-black uppercase tracking-widest text-white drop-shadow">
+              {initial}
+            </span>
+            <span className="relative text-xs font-semibold uppercase tracking-wider text-neutral-200">
+              {p.channel_name}
+            </span>
           </div>
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
