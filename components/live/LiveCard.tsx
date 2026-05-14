@@ -21,7 +21,7 @@ export function LiveCard(p: Props) {
   return (
     <Link
       href={`/live/${p.id}`}
-      className="group block overflow-hidden rounded-lg bg-surface-1 ring-1 ring-surface-3 transition-all hover:ring-brand-500/60 hover:shadow-glow"
+      className="group block h-full overflow-hidden rounded-lg bg-surface-1 ring-1 ring-surface-3 transition-all hover:ring-brand-500/60 hover:shadow-glow"
     >
       <div className="relative aspect-video overflow-hidden bg-surface-2">
         {p.thumbnail_url ? (
