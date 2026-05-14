@@ -5,6 +5,7 @@ import { LiveStreamPlayer } from '@/components/live/LiveStreamPlayer'
 import { ChatSidebar } from '@/components/live/ChatSidebar'
 import { ViewerCount } from '@/components/live/ViewerCount'
 import { StreamLikeButton } from '@/components/live/StreamLikeButton'
+import { SubscribeButton } from '@/components/channel/SubscribeButton'
 
 interface StreamRow {
   id: string
@@ -14,13 +15,14 @@ interface StreamRow {
   hls_url: string | null
   channel_id: string
   channel_name: string
+  channel_owner_id: string
 }
 
 export default async function LiveDetailPage({ params }: { params: { id: string } }) {
   const [streamRes, session] = await Promise.all([
     db.query<StreamRow>(
       `SELECT ls.id, ls.title, ls.status, ls.viewer_count, ls.hls_url,
-              ls.channel_id, c.name AS channel_name
+              ls.channel_id, c.name AS channel_name, c.user_id AS channel_owner_id
        FROM live_streams ls JOIN channels c ON c.id = ls.channel_id
        WHERE ls.id=?`,
       [params.id]
@@ -41,7 +43,12 @@ export default async function LiveDetailPage({ params }: { params: { id: string 
         <div className="mt-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-xl font-bold">{stream.title}</h1>
-            <p className="text-sm text-neutral-400">{stream.channel_name}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-sm text-neutral-400">{stream.channel_name}</p>
+              {session?.user?.id && session.user.id !== stream.channel_owner_id && (
+                <SubscribeButton channelId={stream.channel_id} />
+              )}
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <StreamLikeButton streamId={stream.id} />
