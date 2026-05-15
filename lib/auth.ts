@@ -32,7 +32,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           avatar_url: string | null
         }>(
           `SELECT u.id, u.email, u.username, u.password_hash, r.name AS role_name,
-                  c.avatar_url
+                  COALESCE(c.avatar_url, u.avatar_url) AS avatar_url
            FROM users u JOIN roles r ON r.id = u.role_id
            LEFT JOIN channels c ON c.user_id = u.id
            WHERE u.email = ? LIMIT 1`,

@@ -22,7 +22,9 @@ export default async function SettingsPage() {
   let avatarUrl: string | null = null
   try {
     const channelRes = await db.query<{ avatar_url: string | null }>(
-      'SELECT avatar_url FROM channels WHERE user_id=? LIMIT 1',
+      `SELECT COALESCE(c.avatar_url, u.avatar_url) AS avatar_url
+       FROM users u LEFT JOIN channels c ON c.user_id = u.id
+       WHERE u.id=? LIMIT 1`,
       [session.user.id]
     )
     avatarUrl = channelRes.rows[0]?.avatar_url ?? null

@@ -12,12 +12,12 @@ const protectedPathPrefixes = [
   '/settings',
   '/upload',
   '/go-live',
-  '/studio'
+  '/studio',
+  '/moderator'
 ]
 
 const adminPathPrefixes = [
-  '/admin',
-  '/api/admin'
+  '/admin'
 ]
 
 function startsWithSegment(pathname: string, prefix: string) {
@@ -34,9 +34,14 @@ export default auth((req) => {
   }
 
   const isAdmin = adminPathPrefixes.some((prefix) => startsWithSegment(pathname, prefix))
+  const isAdminApi = startsWithSegment(pathname, '/api/admin')
+  const isModeratorReportsApi = startsWithSegment(pathname, '/api/admin/reports')
+  const isCreatorUsersApi = startsWithSegment(pathname, '/api/admin/users')
+  const isModeratorArea = startsWithSegment(pathname, '/moderator')
   const isCreatorOnly = startsWithSegment(pathname, '/go-live')
   const isProtected =
     isAdmin ||
+    isAdminApi ||
     protectedPathPrefixes.some((prefix) => startsWithSegment(pathname, prefix))
 
   if (isProtected && !session) {
@@ -45,7 +50,19 @@ export default auth((req) => {
     return NextResponse.redirect(url)
   }
 
-  if (isAdmin && session?.user?.role !== 'admin') {
+  if (isModeratorArea && session && !['admin', 'moderator'].includes(session.user.role as Role)) {
+    return NextResponse.redirect(new URL('/403', req.url))
+  }
+
+  if (isModeratorReportsApi && session && !['admin', 'moderator'].includes(session.user.role as Role)) {
+    return NextResponse.redirect(new URL('/403', req.url))
+  }
+
+  if (isCreatorUsersApi && session && !['admin', 'creator'].includes(session.user.role as Role)) {
+    return NextResponse.redirect(new URL('/403', req.url))
+  }
+
+  if ((isAdmin || (isAdminApi && !isModeratorReportsApi && !isCreatorUsersApi)) && session?.user?.role !== 'admin') {
     return NextResponse.redirect(new URL('/403', req.url))
   }
 
@@ -65,6 +82,7 @@ export const config = {
     '/upload/:path*',
     '/go-live/:path*',
     '/studio/:path*',
+    '/moderator/:path*',
     '/admin/:path*',
     '/api/admin/:path*'
   ]

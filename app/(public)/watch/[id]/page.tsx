@@ -7,6 +7,7 @@ import { Comments } from '@/components/video/Comments'
 import { WatchTracker } from '@/components/video/WatchTracker'
 import { auth } from '@/lib/auth'
 import { logTiming } from '@/lib/perf'
+import { SubscribeButton } from '@/components/channel/SubscribeButton'
 
 interface VideoRow {
   id: string
@@ -19,6 +20,8 @@ interface VideoRow {
   created_at: string
   channel_id: string
   channel_name: string
+  channel_avatar_url: string | null
+  channel_owner_id: string
   likes: number
   dislikes: number
 }
@@ -27,7 +30,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   const startedAt = performance.now()
   const result = await db.query<VideoRow>(
     `SELECT v.id, v.title, v.description, v.hls_url, v.thumbnail_url, v.duration, v.views, v.created_at,
-            v.channel_id, c.name AS channel_name,
+            v.channel_id, c.name AS channel_name, c.avatar_url AS channel_avatar_url, c.user_id AS channel_owner_id,
             COALESCE(reactions.likes, 0) AS likes,
             COALESCE(reactions.dislikes, 0) AS dislikes
      FROM videos v JOIN channels c ON c.id = v.channel_id
@@ -62,9 +65,27 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
 
       <h1 className="mt-4 text-2xl font-bold">{video.title}</h1>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-        <Link href={`/channel/${video.channel_id}`} className="text-sm text-neutral-300 hover:text-white">
-          {video.channel_name}
-        </Link>
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            href={`/channel/${video.channel_id}`}
+            className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-surface-0 ring-2 ring-surface-3"
+          >
+            {video.channel_avatar_url
+              ? <img src={video.channel_avatar_url} alt={video.channel_name} className="h-full w-full object-cover" />
+              : video.channel_name[0]?.toUpperCase() ?? '?'
+            }
+          </Link>
+          <div className="min-w-0">
+            <Link href={`/channel/${video.channel_id}`} className="truncate text-sm font-semibold text-neutral-200 hover:text-neutral-100">
+              {video.channel_name}
+            </Link>
+            <p className="text-xs text-neutral-500">Creator</p>
+          </div>
+          {session?.user?.id !== video.channel_owner_id && (
+            <SubscribeButton channelId={video.channel_id} />
+          )}
+        </div>
+
         <div className="flex items-center gap-4">
           <span className="text-sm text-neutral-400">{video.views.toLocaleString()} views</span>
           <ReactionBar videoId={video.id} initialLikes={video.likes} initialDislikes={video.dislikes} />

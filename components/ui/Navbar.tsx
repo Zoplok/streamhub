@@ -3,16 +3,29 @@ import type { Session } from 'next-auth'
 import { auth, signOut } from '@/lib/auth'
 import { Button } from './Button'
 import { SearchBar } from './SearchBar'
-import { Video, Radio, User } from 'lucide-react'
+import { Video, Radio, User, ShieldCheck } from 'lucide-react'
 import { NotificationBell } from './NotificationBell'
 import { ThemeToggle } from './ThemeToggle'
 import { MobileMenuButton } from './MobileMenuButton'
+import { db } from '@/lib/db'
 
 export async function Navbar() {
   const session = await auth()
   const isCreator = session?.user && ['admin', 'creator'].includes(session.user.role)
+  const isModerator = session?.user && ['admin', 'moderator'].includes(session.user.role)
   const initial = session?.user?.name?.[0]?.toUpperCase() ?? 'U'
-  const avatarUrl = session?.user?.image ?? null
+  let avatarUrl = session?.user?.image ?? null
+  if (session?.user) {
+    try {
+      const r = await db.query<{ avatar_url: string | null }>(
+        `SELECT COALESCE(c.avatar_url, u.avatar_url) AS avatar_url
+         FROM users u LEFT JOIN channels c ON c.user_id = u.id
+         WHERE u.id=? LIMIT 1`,
+        [session.user.id]
+      )
+      avatarUrl = r.rows[0]?.avatar_url ?? avatarUrl
+    } catch {}
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-surface-3 bg-surface-0/90 backdrop-blur">
@@ -36,6 +49,7 @@ export async function Navbar() {
               <MobileActions
                 session={session}
                 isCreator={Boolean(isCreator)}
+                isModerator={Boolean(isModerator)}
                 initial={initial}
                 avatarUrl={avatarUrl}
               />
@@ -77,6 +91,15 @@ export async function Navbar() {
                   className="hidden rounded-md px-3 py-2 text-xs font-semibold uppercase tracking-wider text-brand-400 hover:bg-surface-2 hover:text-brand-300 md:inline-block"
                 >
                   Admin
+                </Link>
+              )}
+              {isModerator && (
+                <Link
+                  href="/moderator"
+                  className="hidden items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold uppercase tracking-wider text-brand-400 hover:bg-surface-2 hover:text-brand-300 md:inline-flex"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Mod
                 </Link>
               )}
               <Link
@@ -138,11 +161,13 @@ function AvatarLink({
 function MobileActions({
   session,
   isCreator,
+  isModerator,
   initial,
   avatarUrl
 }: {
   session: Session | null
   isCreator: boolean
+  isModerator: boolean
   initial: string
   avatarUrl: string | null
 }) {
@@ -156,6 +181,15 @@ function MobileActions({
             aria-label="Upload"
           >
             <Video className="h-5 w-5" />
+          </Link>
+        )}
+        {isModerator && (
+          <Link
+            href="/moderator"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 transition-colors hover:bg-surface-2 hover:text-neutral-100"
+            aria-label="Moderator dashboard"
+          >
+            <ShieldCheck className="h-5 w-5" />
           </Link>
         )}
         <NotificationBell />
