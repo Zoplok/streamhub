@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { auth } from '@/lib/auth'
@@ -57,6 +58,8 @@ export async function POST(req: NextRequest) {
         `INSERT INTO shorts (id, channel_id, title, description, video_url, thumbnail_url) VALUES (?,?,?,?,?,?)`,
         [id, channel.rows[0].id, parsed.data.title, parsed.data.description, dataUrl, parsed.data.thumbnail_url || null]
       )
+      revalidateTag('shorts:initial')
+      revalidateTag('home:shorts')
       return NextResponse.json({ data: { id, video_url: dataUrl } }, { status: 201 })
     }
     const url = await uploadObject(key, buf, file.type || 'video/mp4')
@@ -65,6 +68,8 @@ export async function POST(req: NextRequest) {
       `INSERT INTO shorts (id, channel_id, title, description, video_url, thumbnail_url) VALUES (?,?,?,?,?,?)`,
       [id, channel.rows[0].id, parsed.data.title, parsed.data.description, url, parsed.data.thumbnail_url || null]
     )
+    revalidateTag('shorts:initial')
+    revalidateTag('home:shorts')
     return NextResponse.json({ data: { id, video_url: url } }, { status: 201 })
   } catch (err) {
     console.error(err)

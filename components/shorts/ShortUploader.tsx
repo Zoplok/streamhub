@@ -369,10 +369,6 @@ export function ShortUploader() {
             </span>
           </div>
           <div className="relative flex items-center justify-center bg-black" style={{ aspectRatio: '9 / 16' }}>
-            {!previewUrl && thumbnailUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={thumbnailUrl} alt="Short thumbnail preview" className="h-full w-full object-cover" />
-            )}
             {previewUrl ? (
               // eslint-disable-next-line jsx-a11y/media-has-caption
               <video
@@ -383,6 +379,9 @@ export function ShortUploader() {
                 onLoadedMetadata={onFileMeta}
                 className="h-full w-full object-contain"
               />
+            ) : thumbnailUrl.trim() ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={thumbnailUrl.trim()} alt="Short thumbnail preview" className="h-full w-full object-cover" />
             ) : (
               <div className="flex flex-col items-center gap-2 p-6 text-center text-neutral-500">
                 <Film className="h-8 w-8 opacity-60" />
