@@ -13,13 +13,13 @@ export default async function ShortsPage() {
   const result = await cachedDbQuery<ScoredShort>(
     'shorts:initial',
     `WITH candidate_shorts AS (
-       SELECT id, channel_id, title, video_url, thumbnail_url, duration, views, created_at
+       SELECT id, channel_id, title, description, video_url, thumbnail_url, duration, views, created_at
        FROM shorts
        ORDER BY created_at DESC
        LIMIT 200
      ),
      scored AS (
-       SELECT s.id, s.channel_id, s.title, s.video_url, s.thumbnail_url, s.duration, s.views, s.created_at,
+       SELECT s.id, s.channel_id, s.title, s.description, s.video_url, s.thumbnail_url, s.duration, s.views, s.created_at,
               c.name AS channel_name,
               COALESCE(l.likes, 0) AS likes,
               (s.views * 0.3

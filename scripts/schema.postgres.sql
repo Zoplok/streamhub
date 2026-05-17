@@ -60,12 +60,14 @@ CREATE TABLE IF NOT EXISTS shorts (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   channel_id    UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
   title         VARCHAR(500) NOT NULL,
+  description   TEXT,
   video_url     TEXT NOT NULL,
   thumbnail_url TEXT,
   duration      INTEGER NOT NULL DEFAULT 0,
   views         INTEGER NOT NULL DEFAULT 0,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE IF EXISTS shorts ADD COLUMN IF NOT EXISTS description TEXT;
 CREATE INDEX IF NOT EXISTS idx_shorts_created_at ON shorts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_shorts_channel ON shorts(channel_id);
 CREATE INDEX IF NOT EXISTS idx_shorts_views_created ON shorts(views DESC, created_at DESC);

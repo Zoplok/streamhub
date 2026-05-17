@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import type { Short } from '@/types'
-import { Heart, MessageCircle, Share2, Volume2, VolumeX, Play, Pause } from 'lucide-react'
+import type { Comment, Short } from '@/types'
+import { Heart, MessageCircle, Share2, Volume2, VolumeX, Play, Pause, X, Send, Check } from 'lucide-react'
 
 interface ShortWithMeta extends Short {
   channel_name?: string
@@ -28,6 +28,12 @@ export function ShortsPlayer({ initial, loadMore, initialCursor }: Props) {
   const [muted, setMuted] = useState(true)
   const [playing, setPlaying] = useState<Record<string, boolean>>({})
   const [liked, setLiked] = useState<Record<string, boolean>>({})
+  const [activeComments, setActiveComments] = useState<ShortWithMeta | null>(null)
+  const [comments, setComments] = useState<Comment[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [commentError, setCommentError] = useState<string | null>(null)
+  const [shareStatus, setShareStatus] = useState<Record<string, string>>({})
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -108,6 +114,66 @@ export function ShortsPlayer({ initial, loadMore, initialCursor }: Props) {
     }
   }
 
+  async function openComments(short: ShortWithMeta) {
+    setActiveComments(short)
+    setComments([])
+    setCommentText('')
+    setCommentError(null)
+    setCommentsLoading(true)
+    try {
+      const res = await fetch(`/api/shorts/${short.id}/comments`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(typeof json.error === 'string' ? json.error : 'Failed to load comments')
+      setComments(json.data ?? [])
+    } catch (err) {
+      setCommentError((err as Error).message)
+    } finally {
+      setCommentsLoading(false)
+    }
+  }
+
+  async function submitComment() {
+    if (!activeComments || !commentText.trim()) return
+    setCommentError(null)
+    try {
+      const res = await fetch(`/api/shorts/${activeComments.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: commentText.trim() })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(typeof json.error === 'string' ? json.error : 'Failed to post comment')
+      setComments((prev) => [...prev, { ...json.data, replies: [] }])
+      setCommentText('')
+    } catch (err) {
+      setCommentError((err as Error).message)
+    }
+  }
+
+  async function shareShort(short: ShortWithMeta) {
+    const url = `${window.location.origin}/shorts#${short.id}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: short.title, text: short.description ?? undefined, url })
+        setShareStatus((s) => ({ ...s, [short.id]: 'Shared' }))
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(url)
+        setShareStatus((s) => ({ ...s, [short.id]: 'Copied' }))
+      } else {
+        setShareStatus((s) => ({ ...s, [short.id]: url }))
+      }
+      window.setTimeout(() => {
+        setShareStatus((s) => {
+          const next = { ...s }
+          delete next[short.id]
+          return next
+        })
+      }, 1800)
+    } catch {
+      setShareStatus((s) => ({ ...s, [short.id]: 'Share canceled' }))
+    }
+  }
+
   return (
     <div
       ref={containerRef}
@@ -173,6 +239,11 @@ export function ShortsPlayer({ initial, loadMore, initialCursor }: Props) {
                     </Link>
                   )}
                   <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug">{s.title}</p>
+                  {s.description && (
+                    <p className="mt-2 line-clamp-3 max-w-xl whitespace-pre-line text-xs leading-relaxed text-neutral-200">
+                      {s.description}
+                    </p>
+                  )}
                   <p className="mt-1 text-[11px] text-neutral-400">{s.views.toLocaleString()} views</p>
                 </div>
               </div>
@@ -197,7 +268,11 @@ export function ShortsPlayer({ initial, loadMore, initialCursor }: Props) {
                 </span>
               </button>
 
-              <button className="group flex flex-col items-center" aria-label="Comment">
+              <button
+                className="group flex flex-col items-center"
+                aria-label="Comment"
+                onClick={() => openComments(s)}
+              >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white transition-colors hover:bg-black/70">
                   <MessageCircle className="h-6 w-6" />
                 </div>
@@ -209,16 +284,16 @@ export function ShortsPlayer({ initial, loadMore, initialCursor }: Props) {
               <button
                 className="group flex flex-col items-center"
                 aria-label="Share"
-                onClick={() => {
-                  if (typeof navigator !== 'undefined' && 'share' in navigator) {
-                    navigator.share?.({ title: s.title, url: `${window.location.origin}/shorts` }).catch(() => {})
-                  }
-                }}
+                onClick={() => shareShort(s)}
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white transition-colors hover:bg-black/70">
-                  <Share2 className="h-6 w-6" />
+                  {shareStatus[s.id] === 'Copied' || shareStatus[s.id] === 'Shared'
+                    ? <Check className="h-6 w-6" />
+                    : <Share2 className="h-6 w-6" />}
                 </div>
-                <span className="mt-1 text-[11px] font-semibold text-white drop-shadow">Share</span>
+                <span className="mt-1 max-w-[4.5rem] truncate text-[11px] font-semibold text-white drop-shadow">
+                  {shareStatus[s.id] ?? 'Share'}
+                </span>
               </button>
 
               <button onClick={toggleMute} className="group flex flex-col items-center" aria-label="Mute toggle">
@@ -243,6 +318,97 @@ export function ShortsPlayer({ initial, loadMore, initialCursor }: Props) {
         )
       })}
       {cursor && <div data-sentinel className="h-8" />}
+      {activeComments && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="flex max-h-[82vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-surface-3 bg-surface-1 shadow-2xl sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-surface-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-neutral-100">Comments</p>
+                <p className="truncate text-xs text-neutral-500">{activeComments.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveComments(null)}
+                className="rounded-full p-2 text-neutral-400 hover:bg-surface-3 hover:text-white"
+                aria-label="Close comments"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              {commentsLoading ? (
+                <p className="py-8 text-center text-sm text-neutral-500">Loading comments...</p>
+              ) : comments.length > 0 ? (
+                <div className="space-y-4">
+                  {comments.map((comment) => (
+                    <ShortComment key={comment.id} comment={comment} />
+                  ))}
+                </div>
+              ) : (
+                <p className="py-8 text-center text-sm text-neutral-500">No comments yet.</p>
+              )}
+            </div>
+
+            {commentError && (
+              <div className="mx-4 mb-2 rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+                {commentError}
+              </div>
+            )}
+
+            <div className="border-t border-surface-3 p-3">
+              <div className="flex items-end gap-2">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Add a comment..."
+                  rows={2}
+                  maxLength={2000}
+                  className="min-h-[44px] flex-1 resize-none rounded-xl border border-surface-3 bg-surface-0 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                />
+                <button
+                  type="button"
+                  onClick={submitComment}
+                  disabled={!commentText.trim()}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-500 text-surface-0 transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Post comment"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ShortComment({ comment }: { comment: Comment }) {
+  const initial = comment.username?.[0]?.toUpperCase() ?? '?'
+  return (
+    <div className="flex gap-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-3 text-xs font-bold text-neutral-200">
+        {initial}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold text-neutral-100">
+          {comment.username ?? 'User'}
+          <span className="ml-2 font-normal text-neutral-500">
+            {new Date(comment.created_at).toLocaleDateString()}
+          </span>
+        </p>
+        <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-neutral-300">
+          {comment.content}
+        </p>
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="mt-3 space-y-3 border-l border-surface-3 pl-3">
+            {comment.replies.map((reply) => (
+              <ShortComment key={reply.id} comment={reply} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

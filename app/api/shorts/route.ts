@@ -10,6 +10,7 @@ export const maxDuration = 120
 
 const createSchema = z.object({
   title: z.string().min(1).max(150),
+  description: z.string().max(5000).optional().default(''),
   thumbnail_url: z.string().url().max(1000).optional().or(z.literal('')).default('')
 })
 
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = createSchema.safeParse({
     title: form.get('title'),
+    description: form.get('description') ?? '',
     thumbnail_url: form.get('thumbnail_url') ?? ''
   })
   if (!parsed.success) {
@@ -52,16 +54,16 @@ export async function POST(req: NextRequest) {
       }
       const dataUrl = `data:${file.type || 'video/mp4'};base64,${buf.toString('base64')}`
       await db.query(
-        `INSERT INTO shorts (id, channel_id, title, video_url, thumbnail_url) VALUES (?,?,?,?,?)`,
-        [id, channel.rows[0].id, parsed.data.title, dataUrl, parsed.data.thumbnail_url || null]
+        `INSERT INTO shorts (id, channel_id, title, description, video_url, thumbnail_url) VALUES (?,?,?,?,?,?)`,
+        [id, channel.rows[0].id, parsed.data.title, parsed.data.description, dataUrl, parsed.data.thumbnail_url || null]
       )
       return NextResponse.json({ data: { id, video_url: dataUrl } }, { status: 201 })
     }
     const url = await uploadObject(key, buf, file.type || 'video/mp4')
 
     await db.query(
-      `INSERT INTO shorts (id, channel_id, title, video_url, thumbnail_url) VALUES (?,?,?,?,?)`,
-      [id, channel.rows[0].id, parsed.data.title, url, parsed.data.thumbnail_url || null]
+      `INSERT INTO shorts (id, channel_id, title, description, video_url, thumbnail_url) VALUES (?,?,?,?,?,?)`,
+      [id, channel.rows[0].id, parsed.data.title, parsed.data.description, url, parsed.data.thumbnail_url || null]
     )
     return NextResponse.json({ data: { id, video_url: url } }, { status: 201 })
   } catch (err) {

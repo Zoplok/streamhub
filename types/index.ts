@@ -59,6 +59,7 @@ export interface Short {
   id: string
   channel_id: string
   title: string
+  description: string | null
   video_url: string
   thumbnail_url: string | null
   duration: number

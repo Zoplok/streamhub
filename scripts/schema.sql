@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS shorts (
   id            CHAR(36) PRIMARY KEY DEFAULT (UUID()),
   channel_id    CHAR(36) NOT NULL,
   title         VARCHAR(500) NOT NULL,
+  description   TEXT,
   video_url     TEXT NOT NULL,
   thumbnail_url TEXT,
   duration      INT NOT NULL DEFAULT 0,
@@ -63,6 +64,7 @@ CREATE TABLE IF NOT EXISTS shorts (
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE
 );
+ALTER TABLE shorts ADD COLUMN description TEXT;
 CREATE INDEX idx_shorts_created_at ON shorts(created_at DESC);
 CREATE INDEX idx_shorts_channel ON shorts(channel_id);
 CREATE INDEX idx_shorts_views_created ON shorts(views DESC, created_at DESC);
