@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { VideoGrid } from '@/components/video/VideoGrid'
 import { StatsCard } from '@/components/admin/StatsCard'
 import { Button } from '@/components/ui/Button'
+import { ViewerStarterPanel } from '@/components/dashboard/ViewerStarterPanel'
 import { Video, Eye, Users, Radio, Upload, Sparkles, TrendingUp, Film, ShieldCheck, DollarSign } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -16,6 +17,13 @@ export default async function DashboardPage() {
     [session.user.id]
   )
   const channel = channelRes.rows[0]
+  const profileRes = await db.query<{ avatar_url: string | null }>(
+    `SELECT COALESCE(c.avatar_url, u.avatar_url) AS avatar_url
+     FROM users u LEFT JOIN channels c ON c.user_id = u.id
+     WHERE u.id=? LIMIT 1`,
+    [session.user.id]
+  )
+  const avatarUrl = profileRes.rows[0]?.avatar_url ?? session.user.image ?? null
 
   let videos: {
     id: string
@@ -82,8 +90,14 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 rounded-2xl border border-surface-3 bg-gradient-to-br from-surface-1 via-surface-1 to-brand-500/5 p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-xl font-extrabold text-surface-0 shadow-glow">
-            {initial}
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-xl font-extrabold text-surface-0 shadow-glow">
+            {avatarUrl
+              ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt={session.user.name ?? 'You'} className="h-full w-full object-cover" />
+              )
+              : initial
+            }
           </div>
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wider text-brand-400">Creator Studio</p>
@@ -136,12 +150,19 @@ export default async function DashboardPage() {
       </div>
 
       {!channel ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-surface-3 bg-surface-1 py-20 text-center">
-          <Sparkles className="mb-3 h-8 w-8 text-brand-500" />
-          <p className="text-sm font-medium text-neutral-300">No creator channel</p>
-          <p className="mt-1 max-w-sm text-xs text-neutral-500">
-            Ask an admin to upgrade your account to creator, or sign up again with the Creator role to get started.
-          </p>
+        <div className="space-y-4">
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-surface-3 bg-surface-1 py-10 text-center">
+            <Sparkles className="mb-3 h-8 w-8 text-brand-500" />
+            <p className="text-sm font-medium text-neutral-300">No creator channel yet</p>
+            <p className="mt-1 max-w-sm text-xs text-neutral-500">
+              Set your avatar and switch to creator mode to unlock uploads, live, and shorts.
+            </p>
+          </div>
+          <ViewerStarterPanel
+            username={session.user.name ?? 'User'}
+            role={session.user.role}
+            avatarUrl={avatarUrl}
+          />
         </div>
       ) : (
         <>

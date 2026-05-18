@@ -521,17 +521,18 @@ export function ChatSidebar({
             </div>
           )}
           {canSendSuperchat && (
-            <div className="mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5">
+            <div className="mb-2 rounded-xl border border-surface-3 bg-surface-2 p-2.5 shadow-xl/5">
               <div className="mb-2 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => setShowSuperchat((v) => !v)}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 px-2.5 py-1 text-xs font-semibold text-amber-200 hover:bg-amber-400/30"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-surface-4 bg-surface-1 px-2.5 py-1 text-xs font-semibold text-neutral-100 transition-colors hover:bg-surface-2"
                 >
-                  <DollarSign className="h-3.5 w-3.5" />
+                  <DollarSign className="h-3.5 w-3.5 text-brand-400" />
                   Super Chat
+                  <ChevronDown className={`h-3 w-3 text-neutral-500 transition-transform ${showSuperchat ? 'rotate-180' : ''}`} />
                 </button>
-                <span className="text-[10px] text-amber-200/80">Pay by card</span>
+                <span className="text-[10px] text-neutral-500">Card payment</span>
               </div>
 
               {showSuperchat && (
@@ -542,10 +543,10 @@ export function ChatSidebar({
                         key={preset}
                         type="button"
                         onClick={() => setSuperchatAmount(String(preset))}
-                        className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                        className={`rounded-lg border px-2 py-1 text-xs font-semibold transition-colors ${
                           Number(superchatAmount) === preset
-                            ? 'bg-amber-300 text-amber-950'
-                            : 'bg-surface-2 text-neutral-200 hover:bg-surface-3'
+                            ? 'border-brand-500/70 bg-brand-500 text-surface-0 hover:bg-brand-400'
+                            : 'border-surface-3 bg-surface-1 text-neutral-200 hover:bg-surface-2'
                         }`}
                       >
                         ${preset}
@@ -553,16 +554,22 @@ export function ChatSidebar({
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-neutral-300">$</label>
-                    <input
-                      type="number"
-                      min={SUPERCHAT_MIN_USD}
-                      max={SUPERCHAT_MAX_USD}
-                      step="1"
-                      value={superchatAmount}
-                      onChange={(e) => setSuperchatAmount(e.target.value)}
-                      className="h-8 w-24 rounded-md border border-surface-3 bg-surface-1 px-2 text-sm text-neutral-100 focus:border-amber-400 focus:outline-none"
-                    />
+                    <label htmlFor="superchat-amount" className="text-[11px] text-neutral-400">
+                      Amount
+                    </label>
+                    <div className="flex h-8 w-28 items-center overflow-hidden rounded-lg bg-surface-1 ring-1 ring-surface-3 focus-within:ring-brand-500">
+                      <span className="px-2 text-xs text-neutral-400">$</span>
+                      <input
+                        id="superchat-amount"
+                        type="number"
+                        min={SUPERCHAT_MIN_USD}
+                        max={SUPERCHAT_MAX_USD}
+                        step="1"
+                        value={superchatAmount}
+                        onChange={(e) => setSuperchatAmount(e.target.value)}
+                        className="h-full w-full bg-transparent pr-2 text-sm text-neutral-100 focus:outline-none"
+                      />
+                    </div>
                   </div>
                   <textarea
                     rows={2}
@@ -570,17 +577,21 @@ export function ChatSidebar({
                     value={superchatMessage}
                     onChange={(e) => setSuperchatMessage(e.target.value)}
                     placeholder="Your highlighted message..."
-                    className="w-full resize-none rounded-md border border-surface-3 bg-surface-1 px-2 py-1.5 text-xs text-neutral-100 placeholder-neutral-500 focus:border-amber-400 focus:outline-none"
+                    className="w-full resize-none rounded-lg bg-surface-1 px-2 py-1.5 text-xs text-neutral-100 placeholder-neutral-500 ring-1 ring-surface-3 transition-colors focus:outline-none focus:ring-brand-500"
                   />
-                  <button
+                  <p className="text-[10px] text-neutral-500">
+                    Min ${SUPERCHAT_MIN_USD} · Max ${SUPERCHAT_MAX_USD}
+                  </p>
+                  <Button
                     type="button"
                     onClick={startSuperchatCheckout}
                     disabled={superchatLoading}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-300 px-3 py-1.5 text-xs font-bold text-amber-950 hover:bg-amber-200 disabled:opacity-60"
+                    size="sm"
+                    className="h-8 w-full gap-1.5"
                   >
                     <DollarSign className="h-3.5 w-3.5" />
                     {superchatLoading ? 'Starting checkout...' : 'Pay by card'}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
