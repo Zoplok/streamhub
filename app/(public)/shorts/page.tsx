@@ -22,6 +22,7 @@ export default async function ShortsPage() {
        SELECT s.id, s.channel_id, s.title, s.description, s.video_url, s.thumbnail_url, s.duration, s.views, s.created_at,
               c.name AS channel_name,
               COALESCE(l.likes, 0) AS likes,
+              COALESCE(cm.comments_count, 0) AS comments_count,
               (s.views * 0.3
                + COALESCE(l.likes, 0) * 0.5
                + EXP(-TIMESTAMPDIFF(SECOND, s.created_at, NOW()) / 259200.0) * 1000 * 0.2
@@ -34,6 +35,12 @@ export default async function ShortsPage() {
          WHERE r.target_type='short' AND r.type='like'
          GROUP BY target_id
        ) l ON l.target_id = s.id
+       LEFT JOIN (
+         SELECT co.short_id, CAST(COUNT(*) AS SIGNED) AS comments_count
+         FROM comments co
+         JOIN candidate_shorts cs ON cs.id = co.short_id
+         GROUP BY co.short_id
+       ) cm ON cm.short_id = s.id
      )
      SELECT * FROM scored ORDER BY score DESC LIMIT 10`,
     [],

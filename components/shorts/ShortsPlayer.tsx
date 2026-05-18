@@ -7,6 +7,7 @@ import { Heart, MessageCircle, Share2, Volume2, VolumeX, Play, Pause, X, Send, C
 
 interface ShortWithMeta extends Short {
   channel_name?: string
+  comments_count?: number
 }
 
 interface Props {
@@ -33,6 +34,7 @@ export function ShortsPlayer({ initial, loadMore, initialCursor }: Props) {
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [commentError, setCommentError] = useState<string | null>(null)
+  const [commentDelta, setCommentDelta] = useState<Record<string, number>>({})
   const [shareStatus, setShareStatus] = useState<Record<string, string>>({})
   const containerRef = useRef<HTMLDivElement | null>(null)
 
@@ -144,6 +146,10 @@ export function ShortsPlayer({ initial, loadMore, initialCursor }: Props) {
       const json = await res.json()
       if (!res.ok) throw new Error(typeof json.error === 'string' ? json.error : 'Failed to post comment')
       setComments((prev) => [...prev, { ...json.data, replies: [] }])
+      setCommentDelta((prev) => ({
+        ...prev,
+        [activeComments.id]: (prev[activeComments.id] ?? 0) + 1
+      }))
       setCommentText('')
     } catch (err) {
       setCommentError((err as Error).message)
@@ -183,6 +189,7 @@ export function ShortsPlayer({ initial, loadMore, initialCursor }: Props) {
         const initial = s.channel_name?.[0]?.toUpperCase() ?? '?'
         const isPlaying = playing[s.id] ?? true
         const isLiked = liked[s.id] ?? false
+        const commentsCount = Number(s.comments_count ?? 0) + Number(commentDelta[s.id] ?? 0)
         return (
           <div
             key={s.id}
@@ -277,7 +284,7 @@ export function ShortsPlayer({ initial, loadMore, initialCursor }: Props) {
                   <MessageCircle className="h-6 w-6" />
                 </div>
                 <span className="mt-1 text-[11px] font-semibold text-white drop-shadow">
-                  {fmtCount(Math.floor(s.views * 0.015))}
+                  {fmtCount(commentsCount)}
                 </span>
               </button>
 

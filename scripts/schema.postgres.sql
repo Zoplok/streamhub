@@ -148,6 +148,25 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_chat_stream ON chat_messages(stream_id, created_at);
 
+CREATE TABLE IF NOT EXISTS superchats (
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stream_id                 UUID NOT NULL REFERENCES live_streams(id) ON DELETE CASCADE,
+  channel_id                UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+  user_id                   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount_cents              INTEGER NOT NULL,
+  currency                  VARCHAR(10) NOT NULL DEFAULT 'usd',
+  message                   VARCHAR(250) NOT NULL,
+  status                    VARCHAR(20) NOT NULL DEFAULT 'pending',
+  stripe_session_id         VARCHAR(255) NULL,
+  stripe_payment_intent_id  VARCHAR(255) NULL,
+  chat_message_id           UUID NULL REFERENCES chat_messages(id) ON DELETE SET NULL,
+  created_at                TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  paid_at                   TIMESTAMPTZ NULL
+);
+CREATE INDEX IF NOT EXISTS idx_superchats_channel_status_created ON superchats(channel_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_superchats_stream_created ON superchats(stream_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_superchats_user_created ON superchats(user_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS stream_signals (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   stream_id  UUID NOT NULL REFERENCES live_streams(id) ON DELETE CASCADE,

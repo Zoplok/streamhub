@@ -18,7 +18,19 @@ interface StreamRow {
   channel_owner_id: string
 }
 
-export default async function LiveDetailPage({ params }: { params: { id: string } }) {
+type SearchParams = { [key: string]: string | string[] | undefined }
+
+function pickQueryValue(value: string | string[] | undefined) {
+  return typeof value === 'string' ? value : null
+}
+
+export default async function LiveDetailPage({
+  params,
+  searchParams
+}: {
+  params: { id: string }
+  searchParams?: SearchParams
+}) {
   const [streamRes, session] = await Promise.all([
     db.query<StreamRow>(
       `SELECT ls.id, ls.title, ls.status, ls.viewer_count, ls.hls_url,
@@ -60,6 +72,10 @@ export default async function LiveDetailPage({ params }: { params: { id: string 
         streamId={stream.id}
         userId={session?.user?.id ?? null}
         username={session?.user?.name ?? null}
+        channelOwnerId={stream.channel_owner_id}
+        superchatStatus={pickQueryValue(searchParams?.superchat)}
+        superchatSessionId={pickQueryValue(searchParams?.sid)}
+        superchatId={pickQueryValue(searchParams?.sc)}
       />
     </div>
   )

@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { VideoGrid } from '@/components/video/VideoGrid'
 import { StatsCard } from '@/components/admin/StatsCard'
 import { Button } from '@/components/ui/Button'
-import { Video, Eye, Users, Radio, Upload, Sparkles, TrendingUp, Film, ShieldCheck } from 'lucide-react'
+import { Video, Eye, Users, Radio, Upload, Sparkles, TrendingUp, Film, ShieldCheck, DollarSign } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 export default async function DashboardPage() {
@@ -27,7 +27,7 @@ export default async function DashboardPage() {
   }[] = []
   let topVideo: { id: string; title: string; views: number; thumbnail_url: string | null } | null = null
   let liveNow: { id: string; title: string; viewer_count: number }[] = []
-  let totals = { videos: 0, views: 0, subscribers: 0, live: 0 }
+  let totals = { videos: 0, views: 0, subscribers: 0, live: 0, superchatIncomeCents: 0, superchatCount: 0 }
 
   if (channel) {
     const [vids, totalRes, topRes, liveRes] = await Promise.all([
@@ -37,13 +37,15 @@ export default async function DashboardPage() {
          ORDER BY created_at DESC LIMIT 24`,
         [channel.id]
       ),
-      db.query<{ vcount: number; vviews: number; subs: number; live: number }>(
+      db.query<{ vcount: number; vviews: number; subs: number; live: number; superchat_income_cents: number; superchat_count: number }>(
         `SELECT
            (SELECT CAST(COUNT(*) AS SIGNED) FROM videos WHERE channel_id=?) AS vcount,
            (SELECT CAST(COALESCE(SUM(views),0) AS SIGNED) FROM videos WHERE channel_id=?) AS vviews,
            (SELECT CAST(COUNT(*) AS SIGNED) FROM subscriptions WHERE channel_id=?) AS subs,
-           (SELECT CAST(COUNT(*) AS SIGNED) FROM live_streams WHERE channel_id=? AND status='live') AS live`,
-        [channel.id, channel.id, channel.id, channel.id]
+           (SELECT CAST(COUNT(*) AS SIGNED) FROM live_streams WHERE channel_id=? AND status='live') AS live,
+           (SELECT CAST(COALESCE(SUM(amount_cents),0) AS SIGNED) FROM superchats WHERE channel_id=? AND status='paid') AS superchat_income_cents,
+           (SELECT CAST(COUNT(*) AS SIGNED) FROM superchats WHERE channel_id=? AND status='paid') AS superchat_count`,
+        [channel.id, channel.id, channel.id, channel.id, channel.id, channel.id]
       ),
       db.query<{ id: string; title: string; views: number; thumbnail_url: string | null }>(
         `SELECT id, title, views, thumbnail_url FROM videos WHERE channel_id=?
@@ -61,13 +63,19 @@ export default async function DashboardPage() {
       videos: Number(totalRes.rows[0]?.vcount ?? 0),
       views: Number(totalRes.rows[0]?.vviews ?? 0),
       subscribers: Number(totalRes.rows[0]?.subs ?? 0),
-      live: Number(totalRes.rows[0]?.live ?? 0)
+      live: Number(totalRes.rows[0]?.live ?? 0),
+      superchatIncomeCents: Number(totalRes.rows[0]?.superchat_income_cents ?? 0),
+      superchatCount: Number(totalRes.rows[0]?.superchat_count ?? 0)
     }
     topVideo = topRes.rows[0] ?? null
     liveNow = liveRes.rows
   }
 
   const initial = session.user.name?.[0]?.toUpperCase() ?? 'U'
+  const superchatIncomeLabel = new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD'
+  }).format(totals.superchatIncomeCents / 100)
 
   return (
     <div className="px-3 py-4 sm:px-4 sm:py-6 md:px-6 lg:px-8">
@@ -154,6 +162,13 @@ export default async function DashboardPage() {
               icon={Radio}
               accent="red"
               delta={totals.live ? 'You are live!' : 'No active streams'}
+            />
+            <StatsCard
+              label="Superchat income"
+              value={superchatIncomeLabel}
+              icon={DollarSign}
+              accent="amber"
+              delta={totals.superchatCount ? `${totals.superchatCount.toLocaleString()} paid superchats` : 'No paid superchats yet'}
             />
           </div>
 

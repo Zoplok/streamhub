@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { io, Socket } from 'socket.io-client'
 import { Button } from '@/components/ui/Button'
-import { Bot, Send, Shield, Sparkles, Users, Smile, ImageIcon, X, Search, ChevronDown } from 'lucide-react'
+import { Bot, Send, Shield, Sparkles, Users, Smile, ImageIcon, X, Search, ChevronDown, DollarSign } from 'lucide-react'
+import { SUPERCHAT_MAX_USD, SUPERCHAT_MIN_USD, formatMoneyFromCents, parseSuperchatContent } from '@/lib/superchat'
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 
@@ -44,11 +45,19 @@ function getUserColor(name: string): string {
 export function ChatSidebar({
   streamId,
   userId,
-  username
+  username,
+  channelOwnerId,
+  superchatStatus,
+  superchatSessionId,
+  superchatId
 }: {
   streamId: string
   userId: string | null
   username: string | null
+  channelOwnerId?: string
+  superchatStatus?: string | null
+  superchatSessionId?: string | null
+  superchatId?: string | null
 }) {
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [text, setText] = useState('')
@@ -60,6 +69,12 @@ export function ChatSidebar({
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [showEmoji, setShowEmoji] = useState(false)
   const [showGif, setShowGif] = useState(false)
+  const [showSuperchat, setShowSuperchat] = useState(false)
+  const [superchatAmount, setSuperchatAmount] = useState('5')
+  const [superchatMessage, setSuperchatMessage] = useState('')
+  const [superchatLoading, setSuperchatLoading] = useState(false)
+  const [superchatError, setSuperchatError] = useState<string | null>(null)
+  const [superchatNotice, setSuperchatNotice] = useState<string | null>(null)
   const [gifQuery, setGifQuery] = useState('')
   const [gifs, setGifs] = useState<GifResult[]>([])
   const [gifLoading, setGifLoading] = useState(false)
@@ -71,6 +86,7 @@ export function ChatSidebar({
   const lastMessageAtRef = useRef<string | null>(null)
   const socketOwnsViewers = useRef(false)
   const isAtBottomRef = useRef(true)
+  const canSendSuperchat = !!userId && !!username && !!channelOwnerId && userId !== channelOwnerId
 
   const mergeMessages = useCallback((nextMessages: ChatMsg[]) => {
     if (nextMessages.length === 0) return
@@ -108,6 +124,47 @@ export function ChatSidebar({
     const timer = window.setInterval(fetchViewers, 10_000)
     return () => window.clearInterval(timer)
   }, [streamId])
+
+  useEffect(() => {
+    if (superchatStatus === 'cancel') {
+      setSuperchatNotice('Superchat payment was canceled.')
+      return
+    }
+    if (superchatStatus !== 'success' || !superchatSessionId || !superchatId || !userId) return
+
+    let cancelled = false
+    async function confirmPayment() {
+      setSuperchatNotice('Confirming card payment...')
+      try {
+        const res = await fetch(`/api/streams/${streamId}/superchat/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            superchat_id: superchatId,
+            session_id: superchatSessionId
+          })
+        })
+        const json = await res.json().catch(() => null) as { error?: string }
+        if (cancelled) return
+        if (!res.ok) {
+          setSuperchatNotice(null)
+          setSuperchatError(json?.error || 'Payment confirmation failed.')
+          return
+        }
+        setSuperchatNotice('Superchat sent. Thanks for supporting the stream!')
+      } catch {
+        if (!cancelled) {
+          setSuperchatNotice(null)
+          setSuperchatError('Payment confirmation failed. Please try again.')
+        }
+      }
+    }
+
+    void confirmPayment()
+    return () => {
+      cancelled = true
+    }
+  }, [streamId, superchatId, superchatSessionId, superchatStatus, userId])
 
   // Close emoji / gif panels on outside click
   useEffect(() => {
@@ -254,6 +311,44 @@ export function ChatSidebar({
     setShowEmoji(false)
   }
 
+  async function startSuperchatCheckout() {
+    if (!canSendSuperchat) return
+
+    const amount = Number(superchatAmount)
+    if (!Number.isFinite(amount) || amount < SUPERCHAT_MIN_USD || amount > SUPERCHAT_MAX_USD) {
+      setSuperchatError(`Amount must be between $${SUPERCHAT_MIN_USD} and $${SUPERCHAT_MAX_USD}.`)
+      return
+    }
+    if (!superchatMessage.trim()) {
+      setSuperchatError('Add a message for your superchat.')
+      return
+    }
+
+    setSuperchatLoading(true)
+    setSuperchatError(null)
+    try {
+      const res = await fetch(`/api/streams/${streamId}/superchat/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount_usd: amount,
+          currency: 'usd',
+          message: superchatMessage.trim()
+        })
+      })
+      const json = await res.json().catch(() => null) as { data?: { checkout_url?: string }; error?: string }
+      if (!res.ok || !json?.data?.checkout_url) {
+        setSuperchatError(json?.error || 'Could not start card checkout.')
+        return
+      }
+      window.location.href = json.data.checkout_url
+    } catch {
+      setSuperchatError('Could not start card checkout.')
+    } finally {
+      setSuperchatLoading(false)
+    }
+  }
+
   async function send(e: React.FormEvent) {
     e.preventDefault()
     const trimmed = text.trim()
@@ -334,6 +429,7 @@ export function ChatSidebar({
           )}
           {messages.map((m) => {
             const gifMatch = m.content.match(/^\[gif:(https?:\/\/[^\]]+)\]$/)
+            const superchat = parseSuperchatContent(m.content)
             return (
               <li
                 key={m.id}
@@ -353,6 +449,18 @@ export function ChatSidebar({
                     <span className="text-neutral-500">: </span>
                     <img src={gifMatch[1]} alt="GIF" className="mt-1 block max-h-32 rounded-lg object-contain" loading="lazy" />
                   </span>
+                ) : superchat ? (
+                  <div className="rounded-lg border border-amber-400/40 bg-gradient-to-r from-amber-500/20 via-amber-500/10 to-transparent p-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-xs font-extrabold uppercase tracking-wider" style={{ color: getUserColor(m.username) }}>
+                        {m.username}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-amber-400/20 px-2 py-0.5 text-xs font-bold text-amber-200">
+                        {formatMoneyFromCents(superchat.amountCents, superchat.currency)}
+                      </span>
+                    </div>
+                    <p className="mt-1 break-words text-sm text-neutral-100">{superchat.message}</p>
+                  </div>
                 ) : (
                   <span className="break-words">
                     <span className="mr-0.5 font-bold" style={{ color: getUserColor(m.username) }}>{m.username}</span>
@@ -396,10 +504,85 @@ export function ChatSidebar({
 
       {userId ? (
         <div className="shrink-0 border-t border-surface-3 p-3">
+          {superchatNotice && (
+            <div className="mb-2 rounded-md border border-brand-900/60 bg-brand-950/30 px-2.5 py-1.5 text-[11px] text-brand-200">
+              {superchatNotice}
+            </div>
+          )}
           {blocked && (
             <div className="mb-2 rounded-md border border-red-900/60 bg-red-950/40 px-2.5 py-1.5 text-[11px] text-red-300">
               <Shield className="mr-1 inline h-3 w-3" />
               Blocked by AI moderation: {blocked}
+            </div>
+          )}
+          {superchatError && (
+            <div className="mb-2 rounded-md border border-red-900/60 bg-red-950/40 px-2.5 py-1.5 text-[11px] text-red-300">
+              {superchatError}
+            </div>
+          )}
+          {canSendSuperchat && (
+            <div className="mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5">
+              <div className="mb-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowSuperchat((v) => !v)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 px-2.5 py-1 text-xs font-semibold text-amber-200 hover:bg-amber-400/30"
+                >
+                  <DollarSign className="h-3.5 w-3.5" />
+                  Super Chat
+                </button>
+                <span className="text-[10px] text-amber-200/80">Pay by card</span>
+              </div>
+
+              {showSuperchat && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[5, 10, 20].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setSuperchatAmount(String(preset))}
+                        className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                          Number(superchatAmount) === preset
+                            ? 'bg-amber-300 text-amber-950'
+                            : 'bg-surface-2 text-neutral-200 hover:bg-surface-3'
+                        }`}
+                      >
+                        ${preset}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-neutral-300">$</label>
+                    <input
+                      type="number"
+                      min={SUPERCHAT_MIN_USD}
+                      max={SUPERCHAT_MAX_USD}
+                      step="1"
+                      value={superchatAmount}
+                      onChange={(e) => setSuperchatAmount(e.target.value)}
+                      className="h-8 w-24 rounded-md border border-surface-3 bg-surface-1 px-2 text-sm text-neutral-100 focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+                  <textarea
+                    rows={2}
+                    maxLength={250}
+                    value={superchatMessage}
+                    onChange={(e) => setSuperchatMessage(e.target.value)}
+                    placeholder="Your highlighted message..."
+                    className="w-full resize-none rounded-md border border-surface-3 bg-surface-1 px-2 py-1.5 text-xs text-neutral-100 placeholder-neutral-500 focus:border-amber-400 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={startSuperchatCheckout}
+                    disabled={superchatLoading}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-300 px-3 py-1.5 text-xs font-bold text-amber-950 hover:bg-amber-200 disabled:opacity-60"
+                  >
+                    <DollarSign className="h-3.5 w-3.5" />
+                    {superchatLoading ? 'Starting checkout...' : 'Pay by card'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
