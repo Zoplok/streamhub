@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
+import { db } from '@/lib/db'
 import { listChatMessages, sendChatMessage } from '@/lib/chat'
 
 export const runtime = 'nodejs'
@@ -50,10 +51,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   try {
+    const userRes = await db.query<{ username: string }>(
+      'SELECT username FROM users WHERE id=? LIMIT 1',
+      [session.user.id]
+    )
+    const username = userRes.rows[0]?.username ?? session.user.name ?? 'User'
+
     const result = await sendChatMessage({
       streamId: params.id,
       userId: session.user.id,
-      username: session.user.name ?? 'User',
+      username,
       content: parsed.data.content
     })
 

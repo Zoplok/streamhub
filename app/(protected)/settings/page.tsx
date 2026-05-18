@@ -1,12 +1,14 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { Settings as SettingsIcon, Shield, Palette } from 'lucide-react'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SettingsPreferences } from '@/components/settings/SettingsPreferences'
-import { Settings as SettingsIcon, User, Shield, Palette } from 'lucide-react'
-import Link from 'next/link'
+import { ProfileEditor } from '@/components/settings/ProfileEditor'
 
 export const dynamic = 'force-dynamic'
+
 export default async function SettingsPage() {
   const session = await auth()
   if (!session?.user) redirect('/login?callbackUrl=/settings')
@@ -18,7 +20,7 @@ export default async function SettingsPage() {
     [session.user.id]
   )
   const me = res.rows[0]
-  const initial = me?.username?.[0]?.toUpperCase() ?? 'U'
+
   let avatarUrl: string | null = null
   try {
     const channelRes = await db.query<{ avatar_url: string | null }>(
@@ -28,7 +30,9 @@ export default async function SettingsPage() {
       [session.user.id]
     )
     avatarUrl = channelRes.rows[0]?.avatar_url ?? null
-  } catch { /* avatar not critical */ }
+  } catch {
+    // avatar is not critical for rendering settings
+  }
 
   return (
     <div className="px-4 py-6 md:px-6 lg:px-8">
@@ -41,34 +45,13 @@ export default async function SettingsPage() {
           accent="blue"
         />
 
-        {/* Profile */}
-        <section className="mb-6 rounded-2xl border border-surface-3 bg-surface-1 p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <User className="h-4 w-4 text-brand-400" />
-            <h2 className="text-base font-bold">Profile</h2>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-xl font-extrabold text-surface-0 shadow-glow">
-              {avatarUrl
-                ? <img src={avatarUrl} alt={me?.username ?? 'You'} className="h-full w-full object-cover" />
-                : initial
-              }
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-lg font-bold">{me?.username}</p>
-              <p className="text-sm text-neutral-400">{me?.email}</p>
-              <p className="mt-1 text-xs text-neutral-500">
-                Role: <span className="font-semibold uppercase tracking-wider text-brand-400">{me?.role_name}</span>
-                {me?.created_at && (
-                  <>
-                    <span className="mx-1.5">·</span>
-                    Joined {new Date(me.created_at).toLocaleDateString()}
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-        </section>
+        <ProfileEditor
+          username={me?.username ?? session.user.name ?? 'User'}
+          email={me?.email ?? ''}
+          roleName={me?.role_name ?? session.user.role}
+          joinedAt={me?.created_at}
+          avatarUrl={avatarUrl}
+        />
 
         {/* Creator tools */}
         {['admin', 'creator'].includes(session.user.role) && (

@@ -17,13 +17,14 @@ export default async function DashboardPage() {
     [session.user.id]
   )
   const channel = channelRes.rows[0]
-  const profileRes = await db.query<{ avatar_url: string | null }>(
-    `SELECT COALESCE(c.avatar_url, u.avatar_url) AS avatar_url
+  const profileRes = await db.query<{ avatar_url: string | null; username: string }>(
+    `SELECT u.username, COALESCE(c.avatar_url, u.avatar_url) AS avatar_url
      FROM users u LEFT JOIN channels c ON c.user_id = u.id
      WHERE u.id=? LIMIT 1`,
     [session.user.id]
   )
   const avatarUrl = profileRes.rows[0]?.avatar_url ?? session.user.image ?? null
+  const displayName = profileRes.rows[0]?.username ?? session.user.name ?? 'User'
 
   let videos: {
     id: string
@@ -79,7 +80,7 @@ export default async function DashboardPage() {
     liveNow = liveRes.rows
   }
 
-  const initial = session.user.name?.[0]?.toUpperCase() ?? 'U'
+  const initial = displayName[0]?.toUpperCase() ?? 'U'
   const superchatIncomeLabel = new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency: 'USD'
@@ -94,7 +95,7 @@ export default async function DashboardPage() {
             {avatarUrl
               ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarUrl} alt={session.user.name ?? 'You'} className="h-full w-full object-cover" />
+                <img src={avatarUrl} alt={displayName} className="h-full w-full object-cover" />
               )
               : initial
             }
@@ -102,7 +103,7 @@ export default async function DashboardPage() {
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wider text-brand-400">Creator Studio</p>
             <h1 className="mt-0.5 break-words text-xl font-extrabold tracking-tight sm:text-2xl md:text-3xl">
-              Welcome back, {session.user.name}
+              Welcome back, {displayName}
             </h1>
             {channel ? (
               <p className="mt-1 text-sm text-neutral-400">
@@ -159,7 +160,7 @@ export default async function DashboardPage() {
             </p>
           </div>
           <ViewerStarterPanel
-            username={session.user.name ?? 'User'}
+            username={displayName}
             role={session.user.role}
             avatarUrl={avatarUrl}
           />
