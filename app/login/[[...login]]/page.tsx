@@ -1,4 +1,5 @@
 import { SignIn } from '@clerk/nextjs'
+import { clerkAuthAppearance } from '@/components/auth/clerkAuthAppearance'
 
 function pickQueryValue(value: string | string[] | undefined) {
   if (Array.isArray(value)) return value[0] ?? '/'
@@ -21,13 +22,18 @@ export default function LoginPage({
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-md items-center justify-center px-4 py-12">
-      <SignIn
-        path="/login"
-        routing="path"
-        signUpUrl="/register"
-        fallbackRedirectUrl={callbackUrl}
-      />
+    <div className="relative mx-auto flex min-h-[calc(100vh-3.5rem)] w-full max-w-5xl items-center justify-center overflow-hidden px-4 py-12">
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(circle_at_top,rgba(83,252,24,0.24),transparent_55%)]" />
+      <div className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-80 w-80 -translate-x-1/2 rounded-full bg-brand-500/15 blur-3xl" />
+      <div className="w-full max-w-md">
+        <SignIn
+          path="/login"
+          routing="path"
+          signUpUrl="/register"
+          fallbackRedirectUrl={callbackUrl}
+          appearance={clerkAuthAppearance}
+        />
+      </div>
     </div>
   )
 }
