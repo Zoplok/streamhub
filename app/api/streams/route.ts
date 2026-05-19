@@ -12,6 +12,18 @@ const createSchema = z.object({
   thumbnail_url: z.string().url().max(1000).optional().nullable()
 })
 
+function resolveCreatorRtmpUrl(): string | null {
+  const publicUrl = process.env.NEXT_PUBLIC_RTMP_INGEST_URL?.trim()
+  if (publicUrl) return publicUrl.replace(/\/$/, '')
+
+  const ingestUrl = process.env.RTMP_INGEST_URL?.trim()
+  if (!ingestUrl) return null
+
+  // Avoid exposing internal/local container URLs in creator-facing UI.
+  if (/localhost|127\.0\.0\.1|nginx-rtmp/i.test(ingestUrl)) return null
+  return ingestUrl.replace(/\/$/, '')
+}
+
 export async function GET(req: NextRequest) {
   return withApiTiming('GET /api/streams', async () => {
     const status = req.nextUrl.searchParams.get('status') ?? 'live'
@@ -77,7 +89,7 @@ export async function POST(req: NextRequest) {
         data: {
           id: streamId,
           stream_key: streamKey,
-          rtmp_url: process.env.RTMP_INGEST_URL ?? 'rtmp://localhost:1935/live'
+          rtmp_url: resolveCreatorRtmpUrl()
         }
       },
       { status: 201 }

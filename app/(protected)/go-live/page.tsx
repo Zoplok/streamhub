@@ -26,7 +26,7 @@ export default function GoLivePage() {
   const [category, setCategory] = useState('')
   const [thumbnailUrl, setThumbnailUrl] = useState('')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ id: string; stream_key: string; rtmp_url: string } | null>(null)
+  const [result, setResult] = useState<{ id: string; stream_key: string; rtmp_url: string | null } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   // AI title assist
@@ -275,16 +275,22 @@ export default function GoLivePage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => copy(result.rtmp_url, 'url')}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold text-neutral-300 ring-1 ring-surface-3 hover:bg-surface-3 hover:text-white"
+                  onClick={() => result.rtmp_url && copy(result.rtmp_url, 'url')}
+                  disabled={!result.rtmp_url}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold text-neutral-300 ring-1 ring-surface-3 hover:bg-surface-3 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {copied === 'url' ? <Check className="h-3.5 w-3.5 text-brand-400" /> : <Copy className="h-3.5 w-3.5" />}
                   {copied === 'url' ? 'Copied' : 'Copy'}
                 </button>
               </div>
               <code className="block break-all rounded-lg bg-black/50 p-3 font-mono text-xs text-neutral-200 ring-1 ring-surface-3">
-                {result.rtmp_url}
+                {result.rtmp_url ?? 'RTMP ingest URL is not configured.'}
               </code>
+              {!result.rtmp_url && (
+                <p className="mt-2 text-[11px] text-amber-300">
+                  Set <code className="font-mono">NEXT_PUBLIC_RTMP_INGEST_URL</code> in your environment and redeploy.
+                </p>
+              )}
             </section>
 
             {/* Stream Key */}
