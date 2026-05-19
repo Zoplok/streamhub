@@ -1,9 +1,16 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
+import { auth } from '@/lib/auth'
 import { StatsCard } from '@/components/admin/StatsCard'
 
 export const dynamic = 'force-dynamic'
+
 export default async function AdminPage() {
+  const session = await auth()
+  if (!session?.user) redirect('/login?callbackUrl=/admin')
+  if (session.user.role !== 'admin') redirect('/403')
+
   const [users, videos, streams, shorts, reports, views] = await Promise.all([
     db.query<{ c: number }>('SELECT CAST(COUNT(*) AS SIGNED) AS c FROM users'),
     db.query<{ c: number }>('SELECT CAST(COUNT(*) AS SIGNED) AS c FROM videos'),

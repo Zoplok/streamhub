@@ -6,7 +6,7 @@ A production-grade video streaming platform combining YouTube-style video hostin
 
 - Next.js 14 (App Router) - unified frontend + backend
 - MySQL via `mysql2` (raw parameterized SQL)
-- NextAuth.js v5 (JWT + credentials)
+- Clerk (`@clerk/nextjs`) for authentication
 - Socket.io (custom Node server in `server.ts`)
 - FFmpeg HLS transcode pipeline
 - S3-compatible storage, with local filesystem uploads by default in development
@@ -48,7 +48,10 @@ Use Vercel for the web/API app, and run the realtime/ingest worker stack on a VM
 
 ```bash
 NEXTAUTH_URL=https://your-vercel-domain.vercel.app
-NEXTAUTH_SECRET=<generated-secret>
+CLERK_SECRET_KEY=<clerk-secret-key>
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<clerk-publishable-key>
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/register
 DB_HOST=<external-mysql-host>
 DB_PORT=3306
 DB_USER=<external-mysql-user>
@@ -84,7 +87,7 @@ VPS or container host that supports long-running WebSockets and public TCP port
 
 ```bash
 cp .env.ingest.example .env.ingest
-# edit .env.ingest with DATABASE_URL, NEXTAUTH_SECRET, and HLS_PUBLIC_URL
+# edit .env.ingest with DATABASE_URL and HLS_PUBLIC_URL
 docker compose -f docker-compose.ingest.yml up --build -d
 ```
 
@@ -144,14 +147,14 @@ npm run db:migrate
 - Routes: `/api/ai/search`, `/api/ai/recommend`, `/api/ai/moderate`, `/api/ai/suggest-tags`.
 
 ### Role-based access
-`middleware.ts` matches `/dashboard`, `/upload`, `/go-live`, `/admin`. Redirects unauthenticated users to `/login` and non-admins away from `/admin`. API routes additionally verify with `auth()` and role checks.
+`middleware.ts` enforces authentication for protected routes (`/dashboard`, `/upload`, `/go-live`, `/admin`, etc.) and redirects unauthenticated users to `/login`. API routes and pages additionally verify role checks with `auth()`.
 
 ## Security notes
 
 - All DB queries use parameterized `?` syntax.
 - Passwords hashed with bcrypt (cost 12).
 - Comment/chat input sanitized (strips `<` and `>`).
-- httpOnly cookies (NextAuth default).
+- httpOnly auth cookies managed by Clerk.
 - Zod validation on every API input.
 
 ## Seeding a test admin
@@ -169,6 +172,11 @@ VALUES (
 ```
 
 **Environment variables:**
+- `NEXTAUTH_URL` - Base URL where the app is reachable
+- `CLERK_SECRET_KEY` - Clerk server secret key
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk publishable key for client-side auth
+- `NEXT_PUBLIC_CLERK_SIGN_IN_URL` - Sign-in route path (default: `/login`)
+- `NEXT_PUBLIC_CLERK_SIGN_UP_URL` - Sign-up route path (default: `/register`)
 - `DB_HOST` - MySQL host (default: localhost)
 - `DB_PORT` - MySQL port (default: 3306)
 - `DB_USER` - MySQL user (default: root)

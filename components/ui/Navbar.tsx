@@ -1,12 +1,13 @@
 import Link from 'next/link'
-import type { Session } from 'next-auth'
-import { auth, signOut } from '@/lib/auth'
+import type { Session } from '@/types'
+import { auth } from '@/lib/auth'
 import { Button } from './Button'
 import { SearchBar } from './SearchBar'
 import { Video, Radio, User, ShieldCheck } from 'lucide-react'
 import { NotificationBell } from './NotificationBell'
 import { ThemeToggle } from './ThemeToggle'
 import { MobileMenuButton } from './MobileMenuButton'
+import { AuthSignOutButton } from './SignOutButton'
 import { db } from '@/lib/db'
 
 export async function Navbar() {
@@ -112,9 +113,9 @@ export async function Navbar() {
                   : initial
                 }
               </Link>
-              <form action={async () => { 'use server'; await signOut({ redirectTo: '/' }) }} className="hidden sm:block">
-                <Button size="sm" variant="ghost" type="submit">Sign out</Button>
-              </form>
+              <div className="hidden sm:block">
+                <AuthSignOutButton />
+              </div>
             </>
           ) : (
             <>

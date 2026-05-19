@@ -1,9 +1,5 @@
-import { NextResponse } from 'next/server'
-import NextAuth from 'next-auth'
-import { authConfig } from '@/lib/auth.config'
-import type { Role } from '@/types'
-
-const { auth } = NextAuth(authConfig)
+﻿import { NextResponse } from 'next/server'
+import { clerkMiddleware } from '@clerk/nextjs/server'
 
 const protectedPathPrefixes = [
   '/dashboard',
@@ -13,61 +9,33 @@ const protectedPathPrefixes = [
   '/upload',
   '/go-live',
   '/studio',
-  '/moderator'
-]
-
-const adminPathPrefixes = [
-  '/admin'
+  '/moderator',
+  '/admin',
+  '/api/admin'
 ]
 
 function startsWithSegment(pathname: string, prefix: string) {
   return pathname === prefix || pathname.startsWith(`${prefix}/`)
 }
 
-export default auth((req) => {
-  const { pathname } = req.nextUrl
-  const session = req.auth
+export default clerkMiddleware(async (auth, req) => {
+  const { pathname, search } = req.nextUrl
 
-  // Always allow RTMP ingest webhooks — called by nginx-rtmp container, no session.
+  // Always allow RTMP ingest webhooks, called by nginx-rtmp container.
   if (pathname.startsWith('/api/streams/ingest')) {
     return NextResponse.next()
   }
 
-  const isAdmin = adminPathPrefixes.some((prefix) => startsWithSegment(pathname, prefix))
-  const isAdminApi = startsWithSegment(pathname, '/api/admin')
-  const isModeratorReportsApi = startsWithSegment(pathname, '/api/admin/reports')
-  const isCreatorUsersApi = startsWithSegment(pathname, '/api/admin/users')
-  const isModeratorArea = startsWithSegment(pathname, '/moderator')
-  const isCreatorOnly = startsWithSegment(pathname, '/go-live')
-  const isProtected =
-    isAdmin ||
-    isAdminApi ||
-    protectedPathPrefixes.some((prefix) => startsWithSegment(pathname, prefix))
+  const isProtected = protectedPathPrefixes.some((prefix) => startsWithSegment(pathname, prefix))
+  if (!isProtected) {
+    return NextResponse.next()
+  }
 
-  if (isProtected && !session) {
+  const { userId } = await auth()
+  if (!userId) {
     const url = new URL('/login', req.url)
-    url.searchParams.set('callbackUrl', pathname)
+    url.searchParams.set('callbackUrl', `${pathname}${search}`)
     return NextResponse.redirect(url)
-  }
-
-  if (isModeratorArea && session && !['admin', 'moderator'].includes(session.user.role as Role)) {
-    return NextResponse.redirect(new URL('/403', req.url))
-  }
-
-  if (isModeratorReportsApi && session && !['admin', 'moderator'].includes(session.user.role as Role)) {
-    return NextResponse.redirect(new URL('/403', req.url))
-  }
-
-  if (isCreatorUsersApi && session && !['admin', 'creator'].includes(session.user.role as Role)) {
-    return NextResponse.redirect(new URL('/403', req.url))
-  }
-
-  if ((isAdmin || (isAdminApi && !isModeratorReportsApi && !isCreatorUsersApi)) && session?.user?.role !== 'admin') {
-    return NextResponse.redirect(new URL('/403', req.url))
-  }
-
-  if (isCreatorOnly && session && !['admin', 'creator'].includes(session.user.role as Role)) {
-    return NextResponse.redirect(new URL('/403', req.url))
   }
 
   return NextResponse.next()
@@ -75,15 +43,7 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    '/dashboard/:path*',
-    '/history/:path*',
-    '/liked/:path*',
-    '/settings/:path*',
-    '/upload/:path*',
-    '/go-live/:path*',
-    '/studio/:path*',
-    '/moderator/:path*',
-    '/admin/:path*',
-    '/api/admin/:path*'
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    '/(api|trpc)(.*)'
   ]
 }

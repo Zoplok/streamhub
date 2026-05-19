@@ -1,52 +1,143 @@
-import NextAuth from 'next-auth'
-import Credentials from 'next-auth/providers/credentials'
+import { auth as clerkAuth, currentUser } from '@clerk/nextjs/server'
 import bcrypt from 'bcryptjs'
-import { z } from 'zod'
+import { randomUUID } from 'node:crypto'
 import { db } from './db'
-import type { Role } from '@/types'
-import { authConfig } from './auth.config'
+import type { Role, Session } from '@/types'
 
-const credentialsSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1)
-})
+type DbUserRow = {
+  id: string
+  email: string
+  username: string
+  role_name: Role
+  avatar_url: string | null
+}
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  ...authConfig,
-  providers: [
-    Credentials({
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' }
-      },
-      async authorize(raw) {
-        const parsed = credentialsSchema.safeParse(raw)
-        if (!parsed.success) return null
-        const { email, password } = parsed.data
-        const res = await db.query<{
-          id: string
-          email: string
-          username: string
-          password_hash: string
-          role_name: Role
-          avatar_url: string | null
-        }>(
-          `SELECT u.id, u.email, u.username, u.password_hash, r.name AS role_name,
-                  COALESCE(c.avatar_url, u.avatar_url) AS avatar_url
-           FROM users u JOIN roles r ON r.id = u.role_id
-           LEFT JOIN channels c ON c.user_id = u.id
-           WHERE u.email = ? LIMIT 1`,
-          [email]
-        )
-        const user = res.rows[0]
-        if (!user) return null
-        const ok = await bcrypt.compare(password, user.password_hash)
-        if (!ok) return null
-        return { id: user.id, email: user.email, name: user.username, role: user.role_name, image: user.avatar_url ?? null }
-      }
-    })
-  ]
-})
+const DEFAULT_ROLE: Role = 'viewer'
+
+function normalizeUsername(raw: string) {
+  const cleaned = raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '')
+    .replace(/^[-_]+/, '')
+
+  if (cleaned.length >= 3) return cleaned.slice(0, 32)
+  if (cleaned.length > 0) return `user_${cleaned}`.slice(0, 32)
+  return `user_${randomUUID().replace(/-/g, '').slice(0, 8)}`
+}
+
+function buildUsernameSeed(name: string | null | undefined, email: string) {
+  if (name?.trim()) return name
+  const localPart = email.split('@')[0] ?? ''
+  return localPart || 'user'
+}
+
+function buildUniqueUsername(name: string | null | undefined, email: string) {
+  const base = normalizeUsername(buildUsernameSeed(name, email))
+  const suffix = randomUUID().replace(/-/g, '').slice(0, 6)
+  const maxBaseLength = Math.max(3, 32 - suffix.length - 1)
+  const safeBase = base.slice(0, maxBaseLength)
+  return `${safeBase}_${suffix}`
+}
+
+async function findUserByEmail(email: string) {
+  const res = await db.query<DbUserRow>(
+    `SELECT u.id, u.email, u.username, r.name AS role_name,
+            COALESCE(c.avatar_url, u.avatar_url) AS avatar_url
+     FROM users u JOIN roles r ON r.id = u.role_id
+     LEFT JOIN channels c ON c.user_id = u.id
+     WHERE u.email = ? LIMIT 1`,
+    [email]
+  )
+  return res.rows[0] ?? null
+}
+
+async function createUserFromIdentity(email: string, name: string | null | undefined, image: string | null | undefined) {
+  const id = randomUUID()
+  const username = buildUniqueUsername(name, email)
+  const passwordHash = await bcrypt.hash(randomUUID(), 12)
+
+  await db.query(
+    `INSERT INTO users (id, username, email, password_hash, role_id, avatar_url)
+     VALUES (?, ?, ?, ?, (SELECT id FROM roles WHERE name=?), ?)`,
+    [id, username, email, passwordHash, DEFAULT_ROLE, image ?? null]
+  )
+
+  return {
+    id,
+    email,
+    username,
+    role_name: DEFAULT_ROLE,
+    avatar_url: image ?? null
+  } satisfies DbUserRow
+}
+
+function claimAsString(claims: unknown, keys: string[]) {
+  if (!claims || typeof claims !== 'object') return null
+  const map = claims as Record<string, unknown>
+  for (const key of keys) {
+    const value = map[key]
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return null
+}
+
+async function resolveDbUserFromClerk() {
+  let authState: Awaited<ReturnType<typeof clerkAuth>>
+  try {
+    authState = await clerkAuth()
+  } catch {
+    return null
+  }
+  if (!authState.userId) return null
+
+  let email = claimAsString(authState.sessionClaims, ['email', 'primaryEmail', 'email_address'])
+  let name = claimAsString(authState.sessionClaims, ['fullName', 'name'])
+  let image = claimAsString(authState.sessionClaims, ['picture', 'image', 'avatar'])
+
+  if (!email || !name || !image) {
+    let user = null
+    try {
+      user = await currentUser()
+    } catch {
+      user = null
+    }
+    if (user) {
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || null
+      email = email ?? user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? null
+      name = name ?? user.fullName ?? user.username ?? fullName
+      image = image ?? user.imageUrl ?? null
+    }
+  }
+
+  if (!email) return null
+
+  const existing = await findUserByEmail(email)
+  if (existing) {
+    if (image && !existing.avatar_url) {
+      await db.query('UPDATE users SET avatar_url = ? WHERE id = ?', [image, existing.id])
+      return { ...existing, avatar_url: image }
+    }
+    return existing
+  }
+
+  return createUserFromIdentity(email, name, image)
+}
+
+export async function auth(): Promise<Session | null> {
+  const user = await resolveDbUserFromClerk()
+  if (!user) return null
+
+  return {
+    user: {
+      id: user.id,
+      role: user.role_name,
+      name: user.username,
+      email: user.email,
+      image: user.avatar_url
+    }
+  }
+}
 
 export async function requireAuth() {
   const session = await auth()

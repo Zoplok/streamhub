@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
+import { ClerkProvider } from '@clerk/nextjs'
 import { Navbar } from '@/components/ui/Navbar'
 import { Sidebar } from '@/components/ui/Sidebar'
 import { ThemeProvider } from '@/lib/theme'
@@ -22,6 +23,21 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+  const appShell = (
+    <ThemeProvider>
+      <SidebarProvider>
+        <Navbar />
+        <div className="flex min-w-0">
+          <Sidebar />
+          <main className="min-h-[calc(100vh-6.5rem)] min-w-0 flex-1 transition-colors duration-200 sm:min-h-[calc(100vh-3.5rem)]">
+            {children}
+          </main>
+        </div>
+      </SidebarProvider>
+    </ThemeProvider>
+  )
+
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
@@ -45,17 +61,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body>
-        <ThemeProvider>
-          <SidebarProvider>
-            <Navbar />
-            <div className="flex min-w-0">
-              <Sidebar />
-              <main className="min-h-[calc(100vh-6.5rem)] min-w-0 flex-1 transition-colors duration-200 sm:min-h-[calc(100vh-3.5rem)]">
-                {children}
-              </main>
-            </div>
-          </SidebarProvider>
-        </ThemeProvider>
+        {clerkPublishableKey
+          ? <ClerkProvider publishableKey={clerkPublishableKey}>{appShell}</ClerkProvider>
+          : appShell
+        }
       </body>
     </html>
   )

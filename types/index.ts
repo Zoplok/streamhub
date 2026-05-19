@@ -1,27 +1,15 @@
-import type { DefaultSession } from 'next-auth'
-
 export type Role = 'admin' | 'moderator' | 'creator' | 'viewer'
 
-declare module 'next-auth' {
-  interface Session {
-    user: {
-      id: string
-      role: Role
-    } & DefaultSession['user']
-  }
-  // `id` is already declared as optional on next-auth's default User interface,
-  // so we only augment with our app-specific fields. Re-declaring `id` with a
-  // different modifier breaks tsc ("identical modifiers" error).
-  interface User {
-    role: Role
-  }
+export interface SessionUser {
+  id: string
+  role: Role
+  name?: string | null
+  email?: string | null
+  image?: string | null
 }
 
-declare module 'next-auth' {
-  interface JWT {
-    sub: string
-    role: Role
-  }
+export interface Session {
+  user: SessionUser
 }
 
 export interface User {
