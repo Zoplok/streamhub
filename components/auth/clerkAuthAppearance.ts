@@ -32,10 +32,13 @@ export const clerkAuthAppearance = {
       'text-neutral-400 transition-colors hover:text-neutral-200 focus:text-neutral-100',
     formButtonPrimary:
       'h-11 rounded-xl bg-brand-500 text-surface-0 font-semibold transition-colors hover:bg-brand-400 focus:ring-2 focus:ring-brand-500/50 shadow-[0_4px_16px_-4px_rgba(83,252,24,0.45)]',
-    footer: 'border-t border-surface-3 bg-surface-1',
-    footerActionText: 'text-sm text-neutral-400',
+    // Remove the external Clerk branding/dev footer block.
+    footer: 'hidden',
+    // Keep the in-card footer action area consistently black in both themes.
+    footerAction: '-mx-6 border-t border-white/10 bg-black px-6 py-5',
+    footerActionText: 'text-sm text-white/75',
     footerActionLink: 'font-semibold text-brand-400 transition-colors hover:text-brand-300',
-    footerItem: 'text-neutral-400',
+    footerItem: 'text-white/70',
     formResendCodeLink: 'font-semibold text-brand-400 transition-colors hover:text-brand-300'
   }
 }
