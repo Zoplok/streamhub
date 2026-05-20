@@ -1,6 +1,7 @@
-import { auth as clerkAuth, currentUser } from '@clerk/nextjs/server'
+import { auth as clerkAuth, clerkClient, currentUser, verifyToken } from '@clerk/nextjs/server'
 import bcrypt from 'bcryptjs'
 import { randomUUID } from 'node:crypto'
+import { cookies } from 'next/headers'
 import { db } from './db'
 import type { Role, Session } from '@/types'
 
@@ -82,14 +83,58 @@ function claimAsString(claims: unknown, keys: string[]) {
   return null
 }
 
+async function resolveDbUserFromSessionTokenCookie() {
+  if (!process.env.CLERK_SECRET_KEY) return null
+
+  try {
+    const cookieStore = await cookies()
+    const exactSession = cookieStore.get('__session')?.value
+    const suffixedSession = cookieStore.getAll().find((c) => c.name.startsWith('__session_'))?.value
+    const sessionToken = exactSession ?? suffixedSession
+    if (!sessionToken) return null
+
+    const payload = await verifyToken(sessionToken, { secretKey: process.env.CLERK_SECRET_KEY })
+    const clerkUserId = typeof payload?.sub === 'string' ? payload.sub : null
+    if (!clerkUserId) return null
+
+    const user = await (await clerkClient()).users.getUser(clerkUserId)
+    const email =
+      user.primaryEmailAddress?.emailAddress ??
+      user.emailAddresses?.[0]?.emailAddress ??
+      null
+    if (!email) return null
+
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || null
+    const name = user.fullName ?? user.username ?? fullName
+    const image = user.imageUrl ?? null
+
+    const existing = await findUserByEmail(email)
+    if (existing) {
+      if (image && !existing.avatar_url) {
+        await db.query('UPDATE users SET avatar_url = ? WHERE id = ?', [image, existing.id])
+        return { ...existing, avatar_url: image }
+      }
+      return existing
+    }
+
+    return createUserFromIdentity(email, name, image)
+  } catch {
+    return null
+  }
+}
+
 async function resolveDbUserFromClerk() {
   let authState: Awaited<ReturnType<typeof clerkAuth>>
   try {
     authState = await clerkAuth()
   } catch {
-    return null
+    const fallback = await resolveDbUserFromSessionTokenCookie()
+    return fallback
   }
-  if (!authState.userId) return null
+  if (!authState.userId) {
+    const fallback = await resolveDbUserFromSessionTokenCookie()
+    return fallback
+  }
 
   let email = claimAsString(authState.sessionClaims, ['email', 'primaryEmail', 'email_address'])
   let name = claimAsString(authState.sessionClaims, ['fullName', 'name'])
