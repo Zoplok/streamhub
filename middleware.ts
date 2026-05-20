@@ -10,7 +10,9 @@ const protectedPathPrefixes = [
   '/go-live',
   '/studio',
   '/moderator',
-  '/admin'
+  '/admin',
+  '/api/ai',
+  '/api/admin'
 ]
 
 function startsWithSegment(pathname: string, prefix: string) {
@@ -32,6 +34,9 @@ export default clerkMiddleware(async (auth, req) => {
 
   const { userId } = await auth()
   if (!userId) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const url = new URL('/login', req.url)
     url.searchParams.set('callbackUrl', `${pathname}${search}`)
     return NextResponse.redirect(url)
@@ -42,6 +47,9 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    '/((?!api|_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)'
+    // App/page routes (exclude API and static assets).
+    '/((?!api|_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // API routes, but skip large multipart upload endpoints to avoid middleware 413.
+    '/api/((?!videos$|shorts$).*)'
   ]
 }
