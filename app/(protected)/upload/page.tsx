@@ -16,6 +16,19 @@ const TONES = [
 ]
 const MAX_UI_FILE_BYTES = 2 * 1024 * 1024 * 1024
 
+type DirectUploadData = {
+  id: string
+  key: string
+  uploadUrl: string
+  publicUrl: string
+  headers: Record<string, string>
+}
+
+async function readApiError(res: Response, fallback: string) {
+  const json = await res.json().catch(() => null) as { error?: unknown } | null
+  return typeof json?.error === 'string' ? json.error : fallback
+}
+
 export default function UploadPage() {
   const router = useRouter()
   const [title, setTitle] = useState('')
@@ -82,11 +95,83 @@ export default function UploadPage() {
     e.preventDefault()
     if (mode === 'link') { void submitViaLink(); return }
     if (!file) { setError('Please select a video file.'); return }
+    void submitFile(file)
+  }
+
+  async function submitFile(selectedFile: File) {
     setLoading(true)
     setError(null)
+    setProgress(0)
 
+    try {
+      const prepareRes = await fetch('/api/videos/direct-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: selectedFile.name,
+          contentType: selectedFile.type || 'video/mp4',
+          fileSize: selectedFile.size
+        })
+      })
+
+      if (prepareRes.ok) {
+        const json = await prepareRes.json() as { data: DirectUploadData }
+        await uploadDirect(selectedFile, json.data)
+
+        const completeRes = await fetch('/api/videos/direct-upload/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: json.data.id,
+            key: json.data.key,
+            publicUrl: json.data.publicUrl,
+            title,
+            description,
+            category,
+            tags,
+            thumbnail_url: thumbnailUrl.trim()
+          })
+        })
+        if (!completeRes.ok) {
+          throw new Error(await readApiError(completeRes, 'Upload completed, but publishing failed.'))
+        }
+        const completeJson = await completeRes.json() as { data?: { id: string } }
+        router.push(`/watch/${completeJson.data?.id ?? json.data.id}`)
+        return
+      }
+
+      if (prepareRes.status !== 409) {
+        throw new Error(await readApiError(prepareRes, 'Could not start direct upload.'))
+      }
+    } catch (err) {
+      setLoading(false)
+      setError((err as Error).message)
+      return
+    }
+
+    submitMultipart(selectedFile)
+  }
+
+  function uploadDirect(selectedFile: File, upload: DirectUploadData) {
+    return new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('PUT', upload.uploadUrl)
+      Object.entries(upload.headers).forEach(([key, value]) => xhr.setRequestHeader(key, value))
+      xhr.upload.addEventListener('progress', (ev) => {
+        if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 100))
+      })
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve()
+        else reject(new Error(`Storage upload failed (${xhr.status}). Check S3/R2 CORS and bucket permissions.`))
+      }
+      xhr.onerror = () => reject(new Error('Storage upload failed. Check S3/R2 CORS and bucket permissions.'))
+      xhr.send(selectedFile)
+    })
+  }
+
+  function submitMultipart(selectedFile: File) {
     const fd = new FormData()
-    fd.append('file', file)
+    fd.append('file', selectedFile)
     fd.append('title', title)
     fd.append('description', description)
     fd.append('tags', tags)

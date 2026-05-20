@@ -33,6 +33,15 @@ export function hasPersistentObjectStorage() {
   )
 }
 
+export function canPresignObjectUploads() {
+  return storageDriver !== 'local' && Boolean(
+    process.env.S3_ENDPOINT &&
+    process.env.S3_BUCKET &&
+    process.env.S3_ACCESS_KEY &&
+    process.env.S3_SECRET_KEY
+  )
+}
+
 async function toBuffer(body: Buffer | Uint8Array | Readable) {
   if (Buffer.isBuffer(body)) return body
   if (body instanceof Uint8Array) return Buffer.from(body)
