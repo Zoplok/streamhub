@@ -9,7 +9,6 @@ loadEnv({ path: '.env' })
 
 async function main() {
   const { createServer } = await import('node:http')
-  const { parse } = await import('node:url')
   const { default: next } = await import('next')
   const { initSocket } = await import('./lib/socket')
   const { attachStreamIngest } = await import('./lib/stream-ingest')
@@ -26,8 +25,7 @@ async function main() {
 
   await app.prepare()
   const server = createServer((req, res) => {
-    const parsedUrl = parse(req.url ?? '/', true)
-    handle(req, res, parsedUrl)
+    handle(req, res)
   })
 
   initSocket(server)

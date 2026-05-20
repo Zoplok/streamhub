@@ -21,7 +21,10 @@ const localUploadRoot = path.join(process.cwd(), 'public', 'uploads')
 const localPublicBase = process.env.LOCAL_STORAGE_PUBLIC_URL ?? '/uploads'
 
 export function hasPersistentObjectStorage() {
-  if (storageDriver === 'local') return process.env.NODE_ENV !== 'production'
+  if (storageDriver === 'local') {
+    const runningOnVercel = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_URL)
+    return !runningOnVercel
+  }
   return Boolean(
     process.env.S3_ENDPOINT &&
     process.env.S3_BUCKET &&

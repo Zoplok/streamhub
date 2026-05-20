@@ -10,8 +10,7 @@ const protectedPathPrefixes = [
   '/go-live',
   '/studio',
   '/moderator',
-  '/admin',
-  '/api/admin'
+  '/admin'
 ]
 
 function startsWithSegment(pathname: string, prefix: string) {
@@ -43,7 +42,6 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    '/(api|trpc)(.*)'
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)'
   ]
 }

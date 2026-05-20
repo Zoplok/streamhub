@@ -14,6 +14,7 @@ const TONES = [
   { key: 'informative' as const, label: 'Informative' },
   { key: 'minimal' as const, label: 'Minimal' }
 ]
+const MAX_UI_FILE_BYTES = 2 * 1024 * 1024 * 1024
 
 export default function UploadPage() {
   const router = useRouter()
@@ -42,8 +43,8 @@ export default function UploadPage() {
       setError('Please select a video file.')
       return
     }
-    if (f.size > 25 * 1024 * 1024) {
-      setError('File too large for this deployment. Max 25MB unless S3/R2 storage is configured. Use Import via link for larger videos.')
+    if (f.size > MAX_UI_FILE_BYTES) {
+      setError('File too large. Max 2GB.')
       return
     }
     setFile(f)
@@ -103,8 +104,16 @@ export default function UploadPage() {
         try { router.push(`/watch/${JSON.parse(xhr.responseText).data.id}`) }
         catch { router.push('/dashboard') }
       } else {
-        try { setError(typeof JSON.parse(xhr.responseText).error === 'string' ? JSON.parse(xhr.responseText).error : 'Upload failed') }
-        catch { setError(`Upload failed (${xhr.status})`) }
+        try {
+          const parsed = JSON.parse(xhr.responseText) as { error?: string }
+          setError(typeof parsed.error === 'string' ? parsed.error : 'Upload failed')
+        } catch {
+          if (xhr.status === 413) {
+            setError('Upload failed: payload too large for the current server/proxy limit.')
+          } else {
+            setError(`Upload failed (${xhr.status})`)
+          }
+        }
       }
     }
     xhr.onerror = () => { setLoading(false); setError('Network error during upload') }
@@ -210,7 +219,7 @@ export default function UploadPage() {
               <UploadCloud className="h-7 w-7 text-brand-400" />
             </div>
             <p className="text-sm font-semibold text-neutral-100">Drag &amp; drop a video</p>
-            <p className="mt-1 text-xs text-neutral-500">MP4, MOV, WebM - up to 25MB on this deployment</p>
+            <p className="mt-1 text-xs text-neutral-500">MP4, MOV, WebM - up to 2GB (some deployments cap file uploads lower)</p>
             <input
               ref={fileRef}
               type="file"
